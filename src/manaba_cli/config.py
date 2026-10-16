@@ -9,6 +9,7 @@ import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import tomli_w
 
@@ -49,6 +50,10 @@ class Config:
     base_url: str
     username: str | None
     paths: Paths
+
+    @property
+    def host(self) -> str:
+        return urlsplit(self.base_url).netloc
 
 
 def load_config(paths: Paths | None = None) -> Config:
