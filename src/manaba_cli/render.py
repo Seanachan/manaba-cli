@@ -2,17 +2,30 @@
 
 import dataclasses
 import json
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
+
+from manaba_cli.models import Course
 
 console = Console()
 error_console = Console(stderr=True)
+
+_FLAG_LABELS = {
+    "unread_news": "news",
+    "unsubmitted_tasks": "tasks",
+    "new_grades": "grades",
+    "unread_threads": "threads",
+    "individual_messages": "messages",
+}
 
 
 def to_jsonable(value: Any) -> Any:
@@ -44,8 +57,15 @@ def print_fields(fields: dict[str, Any]) -> None:
     table.add_column(style="bold")
     table.add_column()
     for key, value in fields.items():
-        table.add_row(key, format_value(value))
+        table.add_row(key, Text(format_value(value)))
     console.print(table)
+
+
+def print_courses(courses: Sequence[Course]) -> None:
+    _print_table(
+        ("ID", "Course", "Year", "Period", "Teacher", "Alerts"),
+        ((c.id, c.name, c.year, c.period, c.teacher, _flag_labels(c)) for c in courses),
+    )
 
 
 def format_value(value: Any) -> str:
@@ -61,4 +81,19 @@ def format_value(value: Any) -> str:
 
 
 def print_error(message: str) -> None:
-    error_console.print(f"[red]error:[/red] {message}", highlight=False, markup=True)
+    error_console.print(Text.assemble(("error: ", "red"), message))
+
+
+def _print_table(columns: Sequence[str], rows: Iterable[Sequence[Any]]) -> None:
+    table = Table(box=box.SIMPLE_HEAD)
+    for column in columns:
+        table.add_column(column)
+    for row in rows:
+        # Text() keeps manaba titles like "[L2]" from being read as rich markup.
+        table.add_row(*(Text(format_value(value)) for value in row))
+    console.print(table)
+
+
+def _flag_labels(course: Course) -> str | None:
+    flags = dataclasses.asdict(course.flags)
+    return ", ".join(label for flag, label in _FLAG_LABELS.items() if flags[flag]) or None

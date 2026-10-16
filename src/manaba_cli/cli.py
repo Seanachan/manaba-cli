@@ -3,12 +3,15 @@
 import getpass
 import logging
 import sys
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Annotated
 
 import typer
 
 from manaba_cli import __version__, auth, render
+from manaba_cli.client import ManabaClient
 from manaba_cli.config import Config, load_config, save_username
 from manaba_cli.cookie_store import StorageState, earliest_expiry, load_state
 from manaba_cli.credentials import load_credentials, store_password
@@ -88,13 +91,31 @@ def status(json_output: JsonFlag = False) -> None:
         render.print_fields(fields)
 
 
-def open_session(config: Config) -> ManabaSession:
-    """Session that renews an expired login headlessly with the stored credentials."""
+@app.command()
+def courses(json_output: JsonFlag = False) -> None:
+    """List the courses on your My Courses page."""
+    with open_client() as client:
+        result = client.courses()
+    _output(result, json_output, render.print_courses)
+
+
+@contextmanager
+def open_client() -> Iterator[ManabaClient]:
+    """Client whose session renews an expired login headlessly with the stored credentials."""
+    config = load_config()
 
     def relogin() -> None:
         auth.login(config, load_credentials(config.username), headed=False)
 
-    return ManabaSession(config, relogin=relogin)
+    with ManabaSession(config, relogin=relogin) as session:
+        yield ManabaClient(session)
+
+
+def _output[T](result: T, as_json: bool, print_table: Callable[[T], None]) -> None:
+    if as_json:
+        render.print_json(result)
+    else:
+        print_table(result)
 
 
 def _prompt_credentials(config: Config) -> Config:
