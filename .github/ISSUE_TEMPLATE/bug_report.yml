@@ -1,0 +1,64 @@
+name: Bug report
+description: A command fails, prints wrong data, or a page no longer parses.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Do not paste real names, student ids, usernames, cookies,
+        or whole pages.** Anonymize everything (see CONTRIBUTING.md › Reporting a selector break).
+  - type: input
+    id: university
+    attributes:
+      label: University / manaba host
+      placeholder: manaba.example-u.ac.jp
+    validations:
+      required: true
+  - type: input
+    id: manaba-build
+    attributes:
+      label: manaba build
+      description: In the page source, search for `manaba.js?` and copy the number after it.
+      placeholder: "1792038052"
+  - type: dropdown
+    id: language
+    attributes:
+      label: manaba UI language
+      options: [English, Japanese]
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: manaba-cli version, OS, Python
+      description: Output of `manaba --version`, plus your OS and `python --version`.
+      placeholder: 0.1.0, macOS 15, Python 3.13
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and output
+      description: The exact command and the `error:` line or wrong output (anonymized).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: html
+    attributes:
+      label: Anonymized HTML snippet (for parse errors)
+      description: |
+        From `~/.cache/manaba-cli/last-error.html`, only the part around the failing table or
+        element, with names, ids and titles replaced. Never attach the whole file.
+      render: html
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed real names, student ids, usernames, course titles and cookies.
+          required: true
