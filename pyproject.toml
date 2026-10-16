@@ -39,3 +39,5 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+# manaba is a Japanese UI: fullwidth characters in strings and comments are intended.
+ignore = ["RUF001", "RUF002", "RUF003"]
