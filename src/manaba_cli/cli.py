@@ -13,7 +13,7 @@ from rich.text import Text
 
 from manaba_cli import __version__, auth, render
 from manaba_cli.client import ManabaClient
-from manaba_cli.config import Config, load_config, save_username
+from manaba_cli.config import Config, ensure_private_dir, load_config, save_username
 from manaba_cli.cookie_store import StorageState, earliest_expiry, load_state
 from manaba_cli.credentials import load_credentials, store_password
 from manaba_cli.errors import ManabaError, ParseError
@@ -234,7 +234,7 @@ def _report(error: ManabaError) -> None:
     render.print_error(str(error))
     if isinstance(error, ParseError) and error.html is not None:
         dump = load_config().paths.last_error_file
-        dump.parent.mkdir(parents=True, exist_ok=True)
+        ensure_private_dir(dump.parent)  # the page holds personal course data
         dump.write_text(error.html, encoding="utf-8")
         render.print_error(f"page HTML saved to {dump}")
 
