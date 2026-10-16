@@ -41,6 +41,20 @@ def test_block_text_keeps_one_blank_line_from_consecutive_br() -> None:
     assert block_text(_node("<div>a<br><br><br><br>b</div>")) == "a\n\nb"
 
 
+def test_block_text_shows_answers_held_in_form_fields() -> None:
+    node = _node(
+        "<div><ol>"
+        '<li><input type="radio" disabled value="1">A</li>'
+        '<li><input type="radio" disabled value="2" checked>B</li></ol>'
+        'Fill: <input type="text" readonly value="に"> / '
+        '<input type="text" value=""> <input type="hidden" value="secret">'
+        "<select><option>x</option><option selected>y</option></select>"
+        "<textarea>essay</textarea><input type='submit' value='Post'></div>"
+    )
+
+    assert block_text(node) == "( ) A\n(x) B\nFill: [に] / [] [y][essay]"
+
+
 def test_text_lines_skips_blank_lines() -> None:
     node = _node("<div>\n In progress<br>\n <strong> Submitted </strong>\n</div>")
 
