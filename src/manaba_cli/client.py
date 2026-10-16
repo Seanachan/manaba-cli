@@ -6,6 +6,7 @@ from dataclasses import replace
 
 from manaba_cli.errors import ParseError
 from manaba_cli.models import Content, Course, NewsArticle, NewsItem, Page, PageDump, Task
+from manaba_cli.parsers.account import parse_screen_name
 from manaba_cli.parsers.contents import (
     contents_list_ref,
     parse_content_page,
@@ -17,6 +18,7 @@ from manaba_cli.parsers.generic import parse_generic_page
 from manaba_cli.parsers.news import news_list_ref, parse_news_article, parse_news_list
 from manaba_cli.parsers.tasks import TASK_LIST_PAGES, parse_task_list, task_list_ref
 from manaba_cli.session import ManabaSession
+from manaba_cli.urls import HOME_PAGE
 
 # Be gentle with the university's server.
 MAX_PARALLEL_REQUESTS = 4
@@ -25,6 +27,10 @@ MAX_PARALLEL_REQUESTS = 4
 class ManabaClient:
     def __init__(self, session: ManabaSession) -> None:
         self._session = session
+
+    def screen_name(self) -> str | None:
+        """The logged-in user's name as manaba shows it."""
+        return self._read(HOME_PAGE, parse_screen_name)
 
     def courses(self) -> list[Course]:
         return self._read(COURSE_LIST_PAGE, parse_courses)

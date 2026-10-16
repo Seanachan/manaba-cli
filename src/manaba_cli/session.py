@@ -17,11 +17,10 @@ from manaba_cli.config import Config
 from manaba_cli.cookie_store import load_state, to_httpx_cookies
 from manaba_cli.errors import ManabaError, NotFoundError, NotLoggedInError
 from manaba_cli.models import Page
-from manaba_cli.urls import is_authenticated_page, redact, resolve
+from manaba_cli.urls import HOME_PAGE, is_authenticated_page, redact, resolve
 
 USER_AGENT = f"manaba-cli/{__version__} (+https://github.com/Seanachan/manaba-cli)"
 REQUEST_TIMEOUT_S = 20.0
-HOME_PAGE = "home"
 NOT_LOGGED_IN_MESSAGE = "Not logged in to manaba. Run `manaba login` (or `manaba login --headed`)."
 
 log = logging.getLogger(__name__)

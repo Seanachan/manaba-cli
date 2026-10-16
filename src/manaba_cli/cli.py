@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Annotated
 
 import typer
+from rich.text import Text
 
 from manaba_cli import __version__, auth, render
 from manaba_cli.client import ManabaClient
@@ -70,9 +71,9 @@ def login(
     if set_credentials:
         config = _prompt_credentials(config)
     auth.login(config, load_credentials(config.username), headed=headed)
-    with ManabaSession(config) as session:
-        session.get("home")
-    render.console.print(f"Logged in to {config.base_url} as {config.username or 'unknown user'}.")
+    with ManabaSession(config) as session:  # no relogin: verify the fresh cookies as they are
+        name = ManabaClient(session).screen_name()
+    render.console.print(Text(f"Logged in to {config.base_url} as {name or config.username}."))
 
 
 @app.command()

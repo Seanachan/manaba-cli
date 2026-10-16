@@ -7,6 +7,7 @@ from manaba_cli.errors import InvalidUrlError
 
 CT_PREFIX = "/ct/"
 LOGIN_PATH_PREFIX = "/ct/login"
+HOME_PAGE = "home"
 
 # Plain GET links in manaba's UI that change state: log out, switch the UI language,
 # toggle favourite courses, switch list layouts. manaba-cli never requests them.
