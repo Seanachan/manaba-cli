@@ -1,4 +1,5 @@
 import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,7 @@ def test_save_username_round_trips(paths: Paths) -> None:
     assert load_config(paths).username == "s0000000"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
 def test_config_dir_is_private_even_if_it_existed(paths: Paths) -> None:
     paths.config_dir.mkdir(mode=0o755, parents=True)
 

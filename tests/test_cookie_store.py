@@ -1,10 +1,15 @@
 import stat
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 from manaba_cli.cookie_store import earliest_expiry, load_state, save_state, to_httpx_cookies
 
 HOST = "manaba.example.ac.jp"
+
+posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
 
 
 def _cookie(name: str, value: str, domain: str, expires: int) -> dict:
@@ -22,15 +27,24 @@ STATE = {
 }
 
 
-def test_save_state_is_private_and_round_trips(tmp_path: Path) -> None:
+def test_save_state_round_trips(tmp_path: Path) -> None:
+    path = tmp_path / "config" / "cookies.json"
+
+    save_state(path, STATE)
+
+    assert load_state(path) == STATE
+
+
+@posix_only
+def test_save_state_is_private(tmp_path: Path) -> None:
     path = tmp_path / "config" / "cookies.json"
 
     save_state(path, STATE)
 
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    assert load_state(path) == STATE
 
 
+@posix_only
 def test_save_state_tightens_existing_file(tmp_path: Path) -> None:
     path = tmp_path / "cookies.json"
     path.write_text("{}")

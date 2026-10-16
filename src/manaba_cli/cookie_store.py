@@ -21,7 +21,8 @@ def save_state(path: Path, state: StorageState) -> None:
     ensure_private_dir(path.parent)
     temp_path = path.with_suffix(".tmp")
     fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)
+    if hasattr(os, "fchmod"):  # POSIX only; also tightens a leftover temp file
+        os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as file:
         json.dump(state, file)
     os.replace(temp_path, path)
