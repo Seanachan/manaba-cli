@@ -156,6 +156,9 @@ def _print_table(columns: Sequence[str], rows: Iterable[Sequence[Any]]) -> None:
     for row in rows:
         # Text() keeps manaba titles like "[L2]" from being read as rich markup.
         table.add_row(*(Text(format_value(value)) for value in row))
+    if table.row_count == 0:
+        console.print(Text("Nothing to show.", style="dim"))
+        return
     console.print(table)
 
 
