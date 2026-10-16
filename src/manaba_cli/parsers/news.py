@@ -7,8 +7,8 @@ from manaba_cli.models import NewsArticle, NewsItem, Page
 from manaba_cli.parsers.dom import (
     Node,
     block_text,
+    extract_attachments,
     inline_text,
-    parse_attachments,
     parse_html,
     parse_links,
     require,
@@ -44,6 +44,7 @@ def parse_news_article(page: Page) -> NewsArticle:
     if match is None:
         raise ParseError(f"{page.url} is not a course news page.")
     root = parse_html(page.html)
+    attachments = extract_attachments(root, page)
     body = root.css_first("div.msg-text")
     return NewsArticle(
         course_id=int(match[1]),
@@ -55,7 +56,7 @@ def parse_news_article(page: Page) -> NewsArticle:
         url=page.url,
         body=block_text(body),
         links=parse_links(body, page),
-        attachments=parse_attachments(root, page),
+        attachments=attachments,
     )
 
 

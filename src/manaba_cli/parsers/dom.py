@@ -75,20 +75,28 @@ def parse_links(node: Node | None, page: Page) -> tuple[Link, ...]:
     return tuple(links.values())
 
 
-def parse_attachments(root: LexborHTMLParser | Node, page: Page) -> tuple[Attachment, ...]:
-    """Inline attachments, labelled ``<file name> - <uploaded at>``."""
+def extract_attachments(root: LexborHTMLParser | Node, page: Page) -> tuple[Attachment, ...]:
+    """Parse inline attachments (``<file name> - <uploaded at>``) and remove them from the tree.
+
+    Call it before reading the article text or links, so those do not repeat the files.
+    """
     attachments = []
-    for link in root.css("div.inlineattachment div.inlineaf-description a[href]"):
-        label = inline_text(link)
-        match = _ATTACHMENT_LABEL.match(label)
-        attachments.append(
-            Attachment(
-                name=match["name"] if match else label,
-                uploaded_at=parse_datetime(match["when"]) if match else None,
-                url=page.absolute(link.attributes["href"] or ""),
-            )
-        )
+    for box in root.css("div.inlineattachment"):
+        link = box.css_first("div.inlineaf-description a[href]")
+        if link is not None:
+            attachments.append(_attachment(link, page))
+        box.decompose()
     return tuple(attachments)
+
+
+def _attachment(link: Node, page: Page) -> Attachment:
+    label = inline_text(link)
+    match = _ATTACHMENT_LABEL.match(label)
+    return Attachment(
+        name=match["name"] if match else label,
+        uploaded_at=parse_datetime(match["when"]) if match else None,
+        url=page.absolute(link.attributes["href"] or ""),
+    )
 
 
 def _collect_text(node: Node, parts: list[str]) -> None:

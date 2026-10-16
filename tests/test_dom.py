@@ -6,8 +6,8 @@ from manaba_cli.errors import ParseError
 from manaba_cli.models import Attachment, Link, Page
 from manaba_cli.parsers.dom import (
     block_text,
+    extract_attachments,
     inline_text,
-    parse_attachments,
     parse_html,
     parse_links,
     require,
@@ -57,7 +57,7 @@ def test_require_raises_parse_error() -> None:
         require(parse_html("<p></p>"), "table.courselist", "course list")
 
 
-def test_parse_attachments() -> None:
+def test_extract_attachments_parses_and_removes_them() -> None:
     html = """
     <div class="inlineattachment"><div class="inlineaf-description">
       <a href="page_1c2_3_4/notes.docx?view=full"><br>notes.docx - 2026-04-14 13:30:13</a>
@@ -69,7 +69,9 @@ def test_parse_attachments() -> None:
 
     page = Page(url=f"{BASE}/ct/page_1c2_3", html=html)
 
-    assert parse_attachments(parse_html(html), page) == (
+    root = parse_html(html)
+
+    assert extract_attachments(root, page) == (
         Attachment(
             name="notes.docx",
             uploaded_at=datetime(2026, 4, 14, 13, 30, 13, tzinfo=JST),
@@ -77,6 +79,7 @@ def test_parse_attachments() -> None:
         ),
         Attachment(name="odd.pdf", uploaded_at=None, url=f"{BASE}/ct/page_1c2_3_5/odd.pdf"),
     )
+    assert root.css_first("div.inlineattachment") is None
 
 
 def test_parse_links_dedupes_and_skips_in_page_links() -> None:
