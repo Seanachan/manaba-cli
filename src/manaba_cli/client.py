@@ -5,7 +5,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
 from manaba_cli.errors import ParseError
-from manaba_cli.models import Course, NewsArticle, NewsItem, Page, Task
+from manaba_cli.models import Content, Course, NewsArticle, NewsItem, Page, Task
+from manaba_cli.parsers.contents import (
+    contents_list_ref,
+    parse_content_page,
+    parse_content_page_urls,
+    parse_contents_list,
+)
 from manaba_cli.parsers.courses import COURSE_LIST_PAGE, parse_courses
 from manaba_cli.parsers.news import news_list_ref, parse_news_article, parse_news_list
 from manaba_cli.parsers.tasks import TASK_LIST_PAGES, parse_task_list, task_list_ref
@@ -36,6 +42,17 @@ class ManabaClient:
     def news_article(self, ref: str) -> NewsArticle:
         """One news article; reading it marks it as read on manaba, as in the browser."""
         return self._read(ref, parse_news_article)
+
+    def contents(self, course_id: int) -> list[Content]:
+        """Content folders of a course, each with the full text of its pages."""
+        folders = self._read(contents_list_ref(course_id), parse_contents_list)
+        return self._in_parallel(self._with_pages, folders)
+
+    def _with_pages(self, folder: Content) -> Content:
+        # Sequential within a folder: folders already run in parallel.
+        page_urls = self._read(folder.url, parse_content_page_urls)
+        pages = tuple(self._read(url, parse_content_page) for url in page_urls)
+        return replace(folder, pages=pages)
 
     def _read[T](self, ref: str, parse: Callable[[Page], T]) -> T:
         page = self._session.get(ref)

@@ -123,6 +123,7 @@ class ContentPage:
     publish_end: datetime | None
     url: str
     text: str
+    links: tuple[Link, ...]
     attachments: tuple[Attachment, ...]
 
 

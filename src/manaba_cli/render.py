@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from manaba_cli.models import Attachment, Course, Link, NewsArticle, NewsItem, Task
+from manaba_cli.models import Attachment, Content, Course, Link, NewsArticle, NewsItem, Task
 
 console = Console()
 error_console = Console(stderr=True)
@@ -86,19 +86,38 @@ def print_news(items: Sequence[NewsItem]) -> None:
 
 
 def print_article(article: NewsArticle) -> None:
-    print_fields(
+    _print_document(
         {
             "title": article.title,
             "course": article.course_name,
             "author": article.author,
             "posted_at": article.posted_at,
             "url": article.url,
-        }
+        },
+        article.body,
+        article.links,
+        article.attachments,
     )
-    console.print()
-    console.print(Text(article.body))
-    _print_links(article.links)
-    _print_attachments(article.attachments)
+
+
+def print_contents(contents: Sequence[Content]) -> None:
+    for folder in contents:
+        console.rule(Text(folder.title))
+        for page in folder.pages:
+            _print_document(
+                {
+                    "page": page.title,
+                    "author": page.author,
+                    "updated_at": page.updated_at,
+                    "published_from": page.publish_start,
+                    "published_until": page.publish_end,
+                    "url": page.url,
+                },
+                page.text,
+                page.links,
+                page.attachments,
+            )
+            console.print()
 
 
 def format_value(value: Any) -> str:
@@ -125,6 +144,19 @@ def _print_table(columns: Sequence[str], rows: Iterable[Sequence[Any]]) -> None:
         # Text() keeps manaba titles like "[L2]" from being read as rich markup.
         table.add_row(*(Text(format_value(value)) for value in row))
     console.print(table)
+
+
+def _print_document(
+    fields: dict[str, Any],
+    text: str,
+    links: Sequence[Link],
+    attachments: Sequence[Attachment],
+) -> None:
+    print_fields(fields)
+    console.print()
+    console.print(Text(text))
+    _print_links(links)
+    _print_attachments(attachments)
 
 
 def _print_links(links: Sequence[Link]) -> None:

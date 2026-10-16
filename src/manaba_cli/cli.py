@@ -166,6 +166,17 @@ def news_show(
     _output(article, json_output, render.print_article)
 
 
+@app.command()
+def contents(
+    course: Annotated[int, typer.Argument(help="Course id (see `manaba courses`).")],
+    json_output: JsonFlag = False,
+) -> None:
+    """Content folders of a course with each page's text and attachment links."""
+    with open_client() as client:
+        result = client.contents(course)
+    _output(result, json_output, render.print_contents)
+
+
 @contextmanager
 def open_client() -> Iterator[ManabaClient]:
     """Client whose session renews an expired login headlessly with the stored credentials."""
