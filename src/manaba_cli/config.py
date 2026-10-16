@@ -67,8 +67,14 @@ def load_config(paths: Paths | None = None) -> Config:
 def save_username(paths: Paths, username: str) -> None:
     stored = _read_toml(paths.config_file)
     stored["username"] = username
-    paths.config_dir.mkdir(parents=True, exist_ok=True)
+    ensure_private_dir(paths.config_dir)
     paths.config_file.write_text(tomli_w.dumps(stored), encoding="utf-8")
+
+
+def ensure_private_dir(path: Path) -> None:
+    """Create ``path`` if needed and make it accessible to the current user only."""
+    path.mkdir(parents=True, exist_ok=True)
+    path.chmod(0o700)
 
 
 def _read_toml(path: Path) -> dict:

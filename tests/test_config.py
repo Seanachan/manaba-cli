@@ -1,3 +1,4 @@
+import stat
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,14 @@ def test_save_username_round_trips(paths: Paths) -> None:
     save_username(paths, "s0000000")
 
     assert load_config(paths).username == "s0000000"
+
+
+def test_config_dir_is_private_even_if_it_existed(paths: Paths) -> None:
+    paths.config_dir.mkdir(mode=0o755, parents=True)
+
+    save_username(paths, "s0000000")
+
+    assert stat.S_IMODE(paths.config_dir.stat().st_mode) == 0o700
 
 
 def test_save_username_keeps_other_keys(paths: Paths) -> None:

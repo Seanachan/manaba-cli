@@ -12,11 +12,13 @@ from typing import Any
 
 import httpx
 
+from manaba_cli.config import ensure_private_dir
+
 StorageState = dict[str, Any]
 
 
 def save_state(path: Path, state: StorageState) -> None:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    ensure_private_dir(path.parent)
     temp_path = path.with_suffix(".tmp")
     fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.fchmod(fd, 0o600)
