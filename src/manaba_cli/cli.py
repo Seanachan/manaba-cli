@@ -124,7 +124,7 @@ def todo(
     _output(selected, json_output, render.print_tasks)
 
 
-news_app = typer.Typer(help="Course news.")
+news_app = typer.Typer()
 app.add_typer(news_app, name="news")
 
 
