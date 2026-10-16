@@ -64,7 +64,7 @@ def print_json(value: Any) -> None:
 def print_fields(fields: dict[str, Any]) -> None:
     table = Table(show_header=False, box=None, pad_edge=False)
     table.add_column(style="bold")
-    table.add_column()
+    table.add_column(overflow="fold")
     for key, value in fields.items():
         table.add_row(key, Text(format_value(value)))
     console.print(table)
