@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from manaba_cli.models import SubmissionStatus, Task, TaskKind, TaskStatus
-from manaba_cli.selection import is_pending, select_tasks
+from manaba_cli.models import NewsItem, SubmissionStatus, Task, TaskKind, TaskStatus
+from manaba_cli.selection import is_pending, select_news, select_tasks
 from manaba_cli.timeutil import JST
 
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=JST)
@@ -67,3 +67,29 @@ def test_within_days_keeps_only_dated_tasks_inside_the_window() -> None:
     selected = select_tasks(tasks, include_done=False, within_days=3, now=NOW)
 
     assert [t.id for t in selected] == [2]
+
+
+def _news(news_id: int, posted_at: datetime | None) -> NewsItem:
+    return NewsItem(
+        course_id=1,
+        course_name="Course",
+        id=news_id,
+        title=f"news {news_id}",
+        author=None,
+        posted_at=posted_at,
+        unread=False,
+        url=f"https://manaba.example.ac.jp/ct/course_1_news_{news_id}",
+    )
+
+
+def test_select_news_newest_first_with_since_and_limit() -> None:
+    items = [
+        _news(1, datetime(2026, 10, 1, tzinfo=JST)),
+        _news(2, datetime(2026, 10, 15, tzinfo=JST)),
+        _news(3, None),
+        _news(4, datetime(2026, 10, 10, tzinfo=JST)),
+    ]
+
+    assert [n.id for n in select_news(items, since=None, limit=None)] == [2, 4, 1, 3]
+    assert [n.id for n in select_news(items, since=NOW.replace(day=5), limit=None)] == [2, 4]
+    assert [n.id for n in select_news(items, since=None, limit=2)] == [2, 4]

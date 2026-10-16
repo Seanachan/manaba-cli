@@ -17,7 +17,8 @@ from manaba_cli.cookie_store import StorageState, earliest_expiry, load_state
 from manaba_cli.credentials import load_credentials, store_password
 from manaba_cli.errors import ManabaError, ParseError
 from manaba_cli.models import Course
-from manaba_cli.selection import select_tasks
+from manaba_cli.parsers.news import news_article_ref
+from manaba_cli.selection import select_news, select_tasks
 from manaba_cli.session import ManabaSession
 from manaba_cli.timeutil import JST
 
@@ -123,6 +124,46 @@ def todo(
         tasks = client.tasks(_select_courses(client.courses(), course))
     selected = select_tasks(tasks, include_done=show_all, within_days=days, now=datetime.now(JST))
     _output(selected, json_output, render.print_tasks)
+
+
+news_app = typer.Typer(help="Course news.")
+app.add_typer(news_app, name="news")
+
+
+@news_app.callback(invoke_without_command=True)
+def news(
+    ctx: typer.Context,
+    course: CourseOption = None,
+    since: Annotated[
+        datetime | None,
+        typer.Option("--since", formats=["%Y-%m-%d"], help="Only news posted on/after YYYY-MM-DD."),
+    ] = None,
+    limit: Annotated[int | None, typer.Option("--limit", min=1, help="At most N items.")] = None,
+    json_output: JsonFlag = False,
+) -> None:
+    """List course news across courses, newest first. `manaba news show` prints one."""
+    if ctx.invoked_subcommand is not None:
+        return
+    with open_client() as client:
+        items = client.news(_select_courses(client.courses(), course))
+    since_jst = since.replace(tzinfo=JST) if since else None
+    _output(select_news(items, since=since_jst, limit=limit), json_output, render.print_news)
+
+
+@news_app.command("show")
+def news_show(
+    ref: Annotated[str, typer.Argument(help="News URL, or a news id together with --course.")],
+    course: CourseOption = None,
+    json_output: JsonFlag = False,
+) -> None:
+    """Print one news article. Like the browser, this marks it as read."""
+    if ref.isdigit():
+        if course is None:
+            raise ManabaError("A bare news id needs --course.")
+        ref = news_article_ref(course, int(ref))
+    with open_client() as client:
+        article = client.news_article(ref)
+    _output(article, json_output, render.print_article)
 
 
 @contextmanager

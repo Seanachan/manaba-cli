@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from manaba_cli.models import Course, Task
+from manaba_cli.models import Attachment, Course, NewsArticle, NewsItem, Task
 
 console = Console()
 error_console = Console(stderr=True)
@@ -78,6 +78,28 @@ def print_tasks(tasks: Sequence[Task]) -> None:
     )
 
 
+def print_news(items: Sequence[NewsItem]) -> None:
+    _print_table(
+        ("Posted", "Course", "Title", "Author", "Unread", "URL"),
+        ((n.posted_at, n.course_name, n.title, n.author, n.unread, n.url) for n in items),
+    )
+
+
+def print_article(article: NewsArticle) -> None:
+    print_fields(
+        {
+            "title": article.title,
+            "course": article.course_name,
+            "author": article.author,
+            "posted_at": article.posted_at,
+            "url": article.url,
+        }
+    )
+    console.print()
+    console.print(Text(article.body))
+    _print_attachments(article.attachments)
+
+
 def format_value(value: Any) -> str:
     if value is None:
         return "-"
@@ -102,6 +124,14 @@ def _print_table(columns: Sequence[str], rows: Iterable[Sequence[Any]]) -> None:
         # Text() keeps manaba titles like "[L2]" from being read as rich markup.
         table.add_row(*(Text(format_value(value)) for value in row))
     console.print(table)
+
+
+def _print_attachments(attachments: Sequence[Attachment]) -> None:
+    if attachments:
+        _print_table(
+            ("Attachment", "Uploaded", "URL"),
+            ((a.name, a.uploaded_at, a.url) for a in attachments),
+        )
 
 
 def _flag_labels(course: Course) -> str | None:
