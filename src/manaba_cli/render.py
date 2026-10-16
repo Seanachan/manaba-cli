@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from manaba_cli.models import Course
+from manaba_cli.models import Course, Task
 
 console = Console()
 error_console = Console(stderr=True)
@@ -65,6 +65,16 @@ def print_courses(courses: Sequence[Course]) -> None:
     _print_table(
         ("ID", "Course", "Year", "Period", "Teacher", "Alerts"),
         ((c.id, c.name, c.year, c.period, c.teacher, _flag_labels(c)) for c in courses),
+    )
+
+
+def print_tasks(tasks: Sequence[Task]) -> None:
+    _print_table(
+        ("Deadline", "Course", "Kind", "Title", "Status", "Mine"),
+        (
+            (t.deadline, t.course_name, t.kind, t.title, t.status or t.status_raw, t.my_status)
+            for t in tasks
+        ),
     )
 
 

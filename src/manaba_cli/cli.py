@@ -16,8 +16,10 @@ from manaba_cli.config import Config, load_config, save_username
 from manaba_cli.cookie_store import StorageState, earliest_expiry, load_state
 from manaba_cli.credentials import load_credentials, store_password
 from manaba_cli.errors import ManabaError, ParseError
+from manaba_cli.models import Course
 from manaba_cli.session import ManabaSession
 from manaba_cli.timeutil import JST
+from manaba_cli.todo import select_tasks
 
 app = typer.Typer(
     help="Read-only CLI for manaba: courses, deadlines, news and contents.",
@@ -26,6 +28,9 @@ app = typer.Typer(
 )
 
 JsonFlag = Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")]
+CourseOption = Annotated[
+    int | None, typer.Option("--course", help="Only this course id (see `manaba courses`).")
+]
 
 
 def _print_version(value: bool) -> None:
@@ -99,6 +104,27 @@ def courses(json_output: JsonFlag = False) -> None:
     _output(result, json_output, render.print_courses)
 
 
+@app.command()
+def todo(
+    show_all: Annotated[
+        bool, typer.Option("--all", help="Include submitted and closed tasks.")
+    ] = False,
+    course: CourseOption = None,
+    days: Annotated[
+        int | None, typer.Option("--days", min=0, help="Only tasks due within N days.")
+    ] = None,
+    json_output: JsonFlag = False,
+) -> None:
+    """Tasks across all courses, soonest deadline first.
+
+    By default only what is still to do: not submitted and not closed.
+    """
+    with open_client() as client:
+        tasks = client.tasks(_select_courses(client.courses(), course))
+    selected = select_tasks(tasks, include_done=show_all, within_days=days, now=datetime.now(JST))
+    _output(selected, json_output, render.print_tasks)
+
+
 @contextmanager
 def open_client() -> Iterator[ManabaClient]:
     """Client whose session renews an expired login headlessly with the stored credentials."""
@@ -109,6 +135,15 @@ def open_client() -> Iterator[ManabaClient]:
 
     with ManabaSession(config, relogin=relogin) as session:
         yield ManabaClient(session)
+
+
+def _select_courses(courses: list[Course], course_id: int | None) -> list[Course]:
+    if course_id is None:
+        return courses
+    selected = [course for course in courses if course.id == course_id]
+    if not selected:
+        raise ManabaError(f"Course {course_id} is not on your My Courses page.")
+    return selected
 
 
 def _output[T](result: T, as_json: bool, print_table: Callable[[T], None]) -> None:
