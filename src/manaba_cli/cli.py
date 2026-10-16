@@ -177,6 +177,17 @@ def contents(
     _output(result, json_output, render.print_contents)
 
 
+@app.command()
+def show(
+    ref: Annotated[str, typer.Argument(help="manaba page URL, /ct/ path or page name.")],
+    json_output: JsonFlag = False,
+) -> None:
+    """Print any manaba page as text plus its links, e.g. a quiz result."""
+    with open_client() as client:
+        dump = client.page(ref)
+    _output(dump, json_output, render.print_page)
+
+
 @contextmanager
 def open_client() -> Iterator[ManabaClient]:
     """Client whose session renews an expired login headlessly with the stored credentials."""

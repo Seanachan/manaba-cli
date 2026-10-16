@@ -14,7 +14,16 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from manaba_cli.models import Attachment, Content, Course, Link, NewsArticle, NewsItem, Task
+from manaba_cli.models import (
+    Attachment,
+    Content,
+    Course,
+    Link,
+    NewsArticle,
+    NewsItem,
+    PageDump,
+    Task,
+)
 
 console = Console()
 error_console = Console(stderr=True)
@@ -118,6 +127,10 @@ def print_contents(contents: Sequence[Content]) -> None:
                 page.attachments,
             )
             console.print()
+
+
+def print_page(dump: PageDump) -> None:
+    _print_document({"title": dump.title, "url": dump.url}, dump.text, dump.links, ())
 
 
 def format_value(value: Any) -> str:

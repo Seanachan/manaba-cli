@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
 from manaba_cli.errors import ParseError
-from manaba_cli.models import Content, Course, NewsArticle, NewsItem, Page, Task
+from manaba_cli.models import Content, Course, NewsArticle, NewsItem, Page, PageDump, Task
 from manaba_cli.parsers.contents import (
     contents_list_ref,
     parse_content_page,
@@ -13,6 +13,7 @@ from manaba_cli.parsers.contents import (
     parse_contents_list,
 )
 from manaba_cli.parsers.courses import COURSE_LIST_PAGE, parse_courses
+from manaba_cli.parsers.generic import parse_generic_page
 from manaba_cli.parsers.news import news_list_ref, parse_news_article, parse_news_list
 from manaba_cli.parsers.tasks import TASK_LIST_PAGES, parse_task_list, task_list_ref
 from manaba_cli.session import ManabaSession
@@ -47,6 +48,10 @@ class ManabaClient:
         """Content folders of a course, each with the full text of its pages."""
         folders = self._read(contents_list_ref(course_id), parse_contents_list)
         return self._in_parallel(self._with_pages, folders)
+
+    def page(self, ref: str) -> PageDump:
+        """Any manaba page as text and links."""
+        return self._read(ref, parse_generic_page)
 
     def _with_pages(self, folder: Content) -> Content:
         # Sequential within a folder: folders already run in parallel.
