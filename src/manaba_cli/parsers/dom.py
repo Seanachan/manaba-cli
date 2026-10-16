@@ -1,14 +1,12 @@
 """Small helpers over selectolax shared by all parsers."""
 
 import re
-from urllib.parse import urljoin
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from manaba_cli.errors import ParseError
-from manaba_cli.models import Attachment
+from manaba_cli.models import Attachment, Page
 from manaba_cli.timeutil import parse_datetime
-from manaba_cli.urls import CT_PREFIX
 
 Node = LexborNode
 
@@ -63,20 +61,19 @@ def require(root: LexborHTMLParser | Node, selector: str, what: str) -> Node:
     return node
 
 
-def absolute_url(base_url: str, href: str) -> str:
-    return urljoin(base_url + CT_PREFIX, href)
-
-
-def parse_attachments(root: LexborHTMLParser | Node, base_url: str) -> tuple[Attachment, ...]:
+def parse_attachments(root: LexborHTMLParser | Node, page: Page) -> tuple[Attachment, ...]:
     """Inline attachments, labelled ``<file name> - <uploaded at>``."""
     attachments = []
     for link in root.css("div.inlineattachment div.inlineaf-description a[href]"):
         label = inline_text(link)
         match = _ATTACHMENT_LABEL.match(label)
-        name = match["name"] if match else label
-        uploaded_at = parse_datetime(match["when"]) if match else None
-        url = absolute_url(base_url, link.attributes["href"] or "")
-        attachments.append(Attachment(name=name, uploaded_at=uploaded_at, url=url))
+        attachments.append(
+            Attachment(
+                name=match["name"] if match else label,
+                uploaded_at=parse_datetime(match["when"]) if match else None,
+                url=page.absolute(link.attributes["href"] or ""),
+            )
+        )
     return tuple(attachments)
 
 

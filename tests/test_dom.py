@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 
 from manaba_cli.errors import ParseError
-from manaba_cli.models import Attachment
+from manaba_cli.models import Attachment, Page
 from manaba_cli.parsers.dom import (
     block_text,
     inline_text,
@@ -66,7 +66,9 @@ def test_parse_attachments() -> None:
     </div></div>
     """
 
-    assert parse_attachments(parse_html(html), BASE) == (
+    page = Page(url=f"{BASE}/ct/page_1c2_3", html=html)
+
+    assert parse_attachments(parse_html(html), page) == (
         Attachment(
             name="notes.docx",
             uploaded_at=datetime(2026, 4, 14, 13, 30, 13, tzinfo=JST),

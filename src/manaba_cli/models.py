@@ -3,6 +3,19 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from urllib.parse import urljoin
+
+
+@dataclass(frozen=True)
+class Page:
+    """A fetched manaba page: final URL after redirects, and its HTML."""
+
+    url: str
+    html: str
+
+    def absolute(self, href: str) -> str:
+        """``href`` from this page resolved to an absolute URL."""
+        return urljoin(self.url, href)
 
 
 class TaskKind(StrEnum):

@@ -8,7 +8,6 @@ the browser in :mod:`manaba_cli.auth`.
 import logging
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
 from types import TracebackType
 
 import httpx
@@ -17,6 +16,7 @@ from manaba_cli import __version__
 from manaba_cli.config import Config
 from manaba_cli.cookie_store import load_state, to_httpx_cookies
 from manaba_cli.errors import ManabaError, NotFoundError, NotLoggedInError
+from manaba_cli.models import Page
 from manaba_cli.urls import is_authenticated_page, redact, resolve
 
 USER_AGENT = f"manaba-cli/{__version__} (+https://github.com/Seanachan/manaba-cli)"
@@ -27,12 +27,6 @@ NOT_LOGGED_IN_MESSAGE = "Not logged in to manaba. Run `manaba login` (or `manaba
 log = logging.getLogger(__name__)
 
 Relogin = Callable[[], None]
-
-
-@dataclass(frozen=True)
-class Page:
-    url: str
-    html: str
 
 
 class ManabaSession:
