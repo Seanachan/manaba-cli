@@ -1,5 +1,7 @@
 # manaba-cli
 
+English | [日本語](README.ja.md)
+
 [![CI](https://github.com/Seanachan/manaba-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Seanachan/manaba-cli/actions/workflows/ci.yml)
 
 A read-only command-line tool for [manaba](https://manaba.jp/), the course system
