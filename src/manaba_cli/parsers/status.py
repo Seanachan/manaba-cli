@@ -6,8 +6,11 @@ progress on the following lines, e.g. ``In progress`` / ``Not submitted`` or
 """
 
 from collections.abc import Sequence
+from typing import TypeVar
 
 from manaba_cli.models import SubmissionStatus, TaskStatus
+
+S = TypeVar("S")
 
 _TASK_STATUS_WORDS: Sequence[tuple[TaskStatus, tuple[str, ...]]] = (
     (TaskStatus.UPCOMING, ("受付開始待ち", "not started", "waiting")),
@@ -33,7 +36,7 @@ def parse_submission_status(lines: Sequence[str]) -> SubmissionStatus | None:
     return _first_match(" ".join(lines), _SUBMISSION_WORDS)
 
 
-def _first_match[S](text: str, vocabulary: Sequence[tuple[S, tuple[str, ...]]]) -> S | None:
+def _first_match(text: str, vocabulary: Sequence[tuple[S, tuple[str, ...]]]) -> S | None:
     lowered = text.lower()
     for status, words in vocabulary:
         if any(word in lowered for word in words):

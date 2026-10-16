@@ -6,7 +6,7 @@ import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, TypeVar
 
 import typer
 from rich.text import Text
@@ -30,6 +30,8 @@ app = typer.Typer(
 )
 
 JsonFlag = Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")]
+T = TypeVar("T")
+
 CourseOption = Annotated[
     int | None, typer.Option("--course", help="Only this course id (see `manaba courses`).")
 ]
@@ -207,7 +209,7 @@ def _select_courses(courses: list[Course], course_id: int | None) -> list[Course
     return selected
 
 
-def _output[T](result: T, as_json: bool, print_table: Callable[[T], None]) -> None:
+def _output(result: T, as_json: bool, print_table: Callable[[T], None]) -> None:
     if as_json:
         render.print_json(result)
     else:

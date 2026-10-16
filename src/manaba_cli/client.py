@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from typing import TypeVar
 
 from manaba_cli.errors import ParseError
 from manaba_cli.models import Content, Course, NewsArticle, NewsItem, Page, PageDump, Task
@@ -22,6 +23,10 @@ from manaba_cli.urls import HOME_PAGE
 
 # Be gentle with the university's server.
 MAX_PARALLEL_REQUESTS = 4
+
+S = TypeVar("S")
+T = TypeVar("T")
+R = TypeVar("R", Task, NewsItem)
 
 
 class ManabaClient:
@@ -65,7 +70,7 @@ class ManabaClient:
         pages = tuple(self._read(url, parse_content_page) for url in page_urls)
         return replace(folder, pages=pages)
 
-    def _read[T](self, ref: str, parse: Callable[[Page], T]) -> T:
+    def _read(self, ref: str, parse: Callable[[Page], T]) -> T:
         page = self._session.get(ref)
         try:
             return parse(page)
@@ -73,14 +78,12 @@ class ManabaClient:
             raise ParseError(str(error), url=page.url, html=page.html) from error
 
     @staticmethod
-    def _in_parallel[S, T](work: Callable[[S], T], items: Iterable[S]) -> list[T]:
+    def _in_parallel(work: Callable[[S], T], items: Iterable[S]) -> list[T]:
         with ThreadPoolExecutor(max_workers=MAX_PARALLEL_REQUESTS) as pool:
             return list(pool.map(work, items))
 
 
-def _with_course_names[R: (Task, NewsItem)](
-    courses: Sequence[Course], per_course: Iterable[list[R]]
-) -> list[R]:
+def _with_course_names(courses: Sequence[Course], per_course: Iterable[list[R]]) -> list[R]:
     """Flatten per-course lists, filling in the course name the list pages do not show."""
     names = {course.id: course.name for course in courses}
     return [
