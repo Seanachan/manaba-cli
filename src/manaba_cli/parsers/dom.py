@@ -14,7 +14,8 @@ Node = LexborNode
 _SPACES = re.compile(r"[ \t\r\n\f\v\xa0]+")
 _BLANK_LINES = re.compile(r"\n{3,}")
 _BLOCK_BOUNDARY = "\x00"
-_BLOCK_BOUNDARIES = re.compile(r" *\x00[\x00 ]*")
+# Like browsers, a <br> right before a block boundary adds no extra line.
+_BLOCK_BOUNDARIES = re.compile(r" *\n? *\x00[\x00 ]*")
 _SKIPPED_TAGS = frozenset({"script", "style", "noscript", "template", "-comment"})
 _FORM_FIELD_TAGS = frozenset({"input", "select", "textarea"})
 _VALUE_INPUT_TYPES = frozenset({"text", "number", "email", "url", "tel", "search"})

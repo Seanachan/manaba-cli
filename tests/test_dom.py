@@ -41,6 +41,12 @@ def test_block_text_keeps_one_blank_line_from_consecutive_br() -> None:
     assert block_text(_node("<div>a<br><br><br><br>b</div>")) == "a\n\nb"
 
 
+def test_block_text_ignores_br_at_the_end_of_a_block() -> None:
+    assert block_text(_node("<div><p>line<br></p>next<br><div>block</div></div>")) == (
+        "line\nnext\nblock"
+    )
+
+
 def test_block_text_shows_answers_held_in_form_fields() -> None:
     node = _node(
         "<div><ol>"
