@@ -12,12 +12,6 @@ def paths(tmp_path: Path) -> Paths:
     return Paths(config_dir=tmp_path / "config", cache_dir=tmp_path / "cache")
 
 
-@pytest.fixture(autouse=True)
-def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("MANABA_BASE_URL", raising=False)
-    monkeypatch.delenv("MANABA_USERNAME", raising=False)
-
-
 def test_defaults_without_config_file(paths: Paths) -> None:
     config = load_config(paths)
 
