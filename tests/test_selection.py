@@ -1,8 +1,8 @@
 from datetime import datetime
 
 from manaba_cli.models import SubmissionStatus, Task, TaskKind, TaskStatus
+from manaba_cli.selection import is_pending, select_tasks
 from manaba_cli.timeutil import JST
-from manaba_cli.todo import is_pending, select_tasks
 
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=JST)
 

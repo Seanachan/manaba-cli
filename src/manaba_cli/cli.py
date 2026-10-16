@@ -17,9 +17,9 @@ from manaba_cli.cookie_store import StorageState, earliest_expiry, load_state
 from manaba_cli.credentials import load_credentials, store_password
 from manaba_cli.errors import ManabaError, ParseError
 from manaba_cli.models import Course
+from manaba_cli.selection import select_tasks
 from manaba_cli.session import ManabaSession
 from manaba_cli.timeutil import JST
-from manaba_cli.todo import select_tasks
 
 app = typer.Typer(
     help="Read-only CLI for manaba: courses, deadlines, news and contents.",

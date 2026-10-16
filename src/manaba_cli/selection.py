@@ -1,4 +1,4 @@
-"""What counts as "to do", and the order tasks are listed in."""
+"""Which records a listing shows, and in what order."""
 
 from collections.abc import Iterable
 from datetime import datetime, timedelta
