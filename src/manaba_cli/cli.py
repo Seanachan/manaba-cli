@@ -92,10 +92,7 @@ def status(json_output: JsonFlag = False) -> None:
         "config_file": config.paths.config_file,
         "cookies_file": config.paths.cookies_file,
     }
-    if json_output:
-        render.print_json(fields)
-    else:
-        render.print_fields(fields)
+    _output(fields, json_output, render.print_fields)
 
 
 @app.command()
