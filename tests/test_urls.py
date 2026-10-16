@@ -32,6 +32,27 @@ def test_resolve_rejects_other_sites(ref: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "ref",
+    [
+        "logout?lang=en",
+        "home_lang_ja",
+        "home_favoritecourse_100_set_course__",
+        "home_course?chglistformat=thumbnail",
+        f"{BASE}/ct/home?chglistformat=list",
+    ],
+)
+def test_resolve_rejects_state_changing_links(ref: str) -> None:
+    with pytest.raises(InvalidUrlError, match="read-only"):
+        resolve(BASE, ref)
+
+
+def test_resolve_allows_paging_parameters() -> None:
+    url = resolve(BASE, "course_100_news?start=1&pagelen=50")
+
+    assert url == f"{BASE}/ct/course_100_news?start=1&pagelen=50"
+
+
+@pytest.mark.parametrize(
     ("url", "expected"),
     [
         (f"{BASE}/ct/home", True),
