@@ -5,7 +5,7 @@ import re
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from manaba_cli.errors import ParseError
-from manaba_cli.models import Attachment, Page
+from manaba_cli.models import Attachment, Link, Page
 from manaba_cli.timeutil import parse_datetime
 
 Node = LexborNode
@@ -59,6 +59,20 @@ def require(root: LexborHTMLParser | Node, selector: str, what: str) -> Node:
     if node is None:
         raise ParseError(f"Could not find {what} ({selector}).")
     return node
+
+
+def parse_links(node: Node | None, page: Page) -> tuple[Link, ...]:
+    """Distinct hyperlinks inside ``node`` in document order, without in-page/script links."""
+    if node is None:
+        return ()
+    links: dict[str, Link] = {}
+    for anchor in node.css("a[href]"):
+        href = (anchor.attributes["href"] or "").strip()
+        if not href or href.startswith(("#", "javascript:")):
+            continue
+        url = page.absolute(href)
+        links.setdefault(url, Link(text=inline_text(anchor) or url, url=url))
+    return tuple(links.values())
 
 
 def parse_attachments(root: LexborHTMLParser | Node, page: Page) -> tuple[Attachment, ...]:

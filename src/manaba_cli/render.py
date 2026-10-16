@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from manaba_cli.models import Attachment, Course, NewsArticle, NewsItem, Task
+from manaba_cli.models import Attachment, Course, Link, NewsArticle, NewsItem, Task
 
 console = Console()
 error_console = Console(stderr=True)
@@ -97,6 +97,7 @@ def print_article(article: NewsArticle) -> None:
     )
     console.print()
     console.print(Text(article.body))
+    _print_links(article.links)
     _print_attachments(article.attachments)
 
 
@@ -119,11 +120,16 @@ def print_error(message: str) -> None:
 def _print_table(columns: Sequence[str], rows: Iterable[Sequence[Any]]) -> None:
     table = Table(box=box.SIMPLE_HEAD)
     for column in columns:
-        table.add_column(column)
+        table.add_column(column, overflow="fold")  # wrap long URLs instead of cutting them
     for row in rows:
         # Text() keeps manaba titles like "[L2]" from being read as rich markup.
         table.add_row(*(Text(format_value(value)) for value in row))
     console.print(table)
+
+
+def _print_links(links: Sequence[Link]) -> None:
+    if links:
+        _print_table(("Link", "URL"), ((link.text, link.url) for link in links))
 
 
 def _print_attachments(attachments: Sequence[Attachment]) -> None:

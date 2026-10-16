@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 
 from manaba_cli.errors import ParseError
-from manaba_cli.models import Attachment, NewsArticle, NewsItem, Page
+from manaba_cli.models import Attachment, Link, NewsArticle, NewsItem, Page
 from manaba_cli.parsers.news import parse_news_article, parse_news_list
 from manaba_cli.timeutil import JST
 from tests.support import BASE, fixture
@@ -58,6 +58,7 @@ def test_parses_news_article() -> None:
         posted_at=datetime(2026, 10, 9, tzinfo=JST),
         url=f"{BASE}/ct/course_1001_news_3002",
         body="If you drop this course, remove it from manaba yourself.\n\nDetails:\nReport page",
+        links=(Link(text="Report page", url=f"{BASE}/ct/course_1001_report_2001"),),
         attachments=(
             Attachment(
                 name="handout.pdf",

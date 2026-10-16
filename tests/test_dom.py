@@ -3,12 +3,13 @@ from datetime import datetime
 import pytest
 
 from manaba_cli.errors import ParseError
-from manaba_cli.models import Attachment, Page
+from manaba_cli.models import Attachment, Link, Page
 from manaba_cli.parsers.dom import (
     block_text,
     inline_text,
     parse_attachments,
     parse_html,
+    parse_links,
     require,
     text_lines,
 )
@@ -75,4 +76,19 @@ def test_parse_attachments() -> None:
             url=f"{BASE}/ct/page_1c2_3_4/notes.docx?view=full",
         ),
         Attachment(name="odd.pdf", uploaded_at=None, url=f"{BASE}/ct/page_1c2_3_5/odd.pdf"),
+    )
+
+
+def test_parse_links_dedupes_and_skips_in_page_links() -> None:
+    node = _node(
+        '<div><a href="course_1_news_2">News</a> <a href="#top">Top</a>'
+        '<a href="javascript:void(0)">JS</a> <a href="https://example.com/doc">Doc</a>'
+        '<a href="course_1_news_2">again</a><a href="https://example.com/x"></a></div>'
+    )
+    page = Page(url=f"{BASE}/ct/course_1", html="")
+
+    assert parse_links(node, page) == (
+        Link(text="News", url=f"{BASE}/ct/course_1_news_2"),
+        Link(text="Doc", url="https://example.com/doc"),
+        Link(text="https://example.com/x", url="https://example.com/x"),
     )

@@ -10,6 +10,7 @@ from manaba_cli.parsers.dom import (
     inline_text,
     parse_attachments,
     parse_html,
+    parse_links,
     require,
 )
 from manaba_cli.timeutil import parse_datetime
@@ -43,6 +44,7 @@ def parse_news_article(page: Page) -> NewsArticle:
     if match is None:
         raise ParseError(f"{page.url} is not a course news page.")
     root = parse_html(page.html)
+    body = root.css_first("div.msg-text")
     return NewsArticle(
         course_id=int(match[1]),
         course_name=inline_text(root.css_first("a#coursename")) or None,
@@ -51,7 +53,8 @@ def parse_news_article(page: Page) -> NewsArticle:
         author=_author(root.css_first("div.msg-info")),
         posted_at=parse_datetime(inline_text(root.css_first("span.msg-date"))),
         url=page.url,
-        body=block_text(root.css_first("div.msg-text")),
+        body=block_text(body),
+        links=parse_links(body, page),
         attachments=parse_attachments(root, page),
     )
 

@@ -83,6 +83,12 @@ class Attachment:
 
 
 @dataclass(frozen=True)
+class Link:
+    text: str
+    url: str
+
+
+@dataclass(frozen=True)
 class NewsItem:
     course_id: int
     course_name: str | None
@@ -104,6 +110,7 @@ class NewsArticle:
     posted_at: datetime | None
     url: str
     body: str
+    links: tuple[Link, ...]
     attachments: tuple[Attachment, ...]
 
 
@@ -129,12 +136,6 @@ class Content:
     updated_at: datetime | None
     url: str
     pages: tuple[ContentPage, ...] = ()
-
-
-@dataclass(frozen=True)
-class Link:
-    text: str
-    url: str
 
 
 @dataclass(frozen=True)
