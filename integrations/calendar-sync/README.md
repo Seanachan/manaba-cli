@@ -1,0 +1,138 @@
+# Google Calendar sync
+
+English | [日本語](README.ja.md)
+
+A daily job that copies new manaba deadlines into your Google Calendar. macOS only.
+
+Every day at a time you choose, launchd starts [Claude Code](https://docs.claude.com/en/docs/claude-code)
+in headless mode. Claude runs `manaba todo`, checks which tasks are already in your calendar, reads
+each new task page with `manaba show`, and creates one event per new deadline:
+
+- The event ends at the deadline and starts 15 minutes before it.
+- Reminders fire 1 day and 3 hours before.
+- The location is the task URL, and the description summarizes what to submit.
+
+```text
+$ tail ~/Library/Logs/manaba-calendar-sync.log
+=== 2026-10-22 22:00:01
+CREATED 2
+- 10/25 23:55 Sample Course Week 2 report (manaba)
+- 10/29 10:10 Sample Seminar reading quiz (manaba)
+SKIPPED (already in calendar) 5
+exit=0
+```
+
+A macOS notification shows the `CREATED` line after each run.
+
+## Before you install: what leaves your Mac
+
+manaba-cli itself talks only to manaba and your university's login page. This integration is
+different: it sends your task list and the text of each new task page to **Anthropic** (Claude) and
+writes events to **Google Calendar**. Install it only if you are fine with that.
+
+## What the job can and cannot do
+
+The job runs with `--permission-mode dontAsk`. Claude Code refuses every tool that is not listed
+below, without asking anyone.
+
+| Allowed | Not allowed |
+|---|---|
+| `manaba todo`, `manaba show`, `manaba status` (all read-only) | any other shell command, file edits, web access |
+| list events, create events in Google Calendar | edit or delete events, other calendars' settings |
+
+Each run also stops if it would cost more than `--budget` (default 1 USD). It runs on your Claude
+plan's usage.
+
+## Requirements
+
+| | |
+|---|---|
+| macOS | the schedule uses launchd |
+| manaba-cli | installed, and logged in once with `manaba login --set-credentials`. The stored password lets the job log in again when the session expires. If your SSO needs MFA, the job cannot log in by itself. |
+| Claude Code | installed, and logged in with a claude.ai account (Pro, Max, Team or Enterprise). An API key login has no claude.ai connectors. |
+| Google Calendar connector | connected in claude.ai under **Connectors** |
+
+Check that Claude Code can see your calendars:
+
+```sh
+claude -p "List my Google calendars with their ids" \
+  --allowedTools mcp__claude_ai_Google_Calendar__list_calendars
+```
+
+## Install
+
+1. **Pick a calendar.** Use `primary` for your main calendar, or a calendar id from the command
+   above. In Google Calendar you also find it under **Settings → (your calendar) → Integrate
+   calendar → Calendar ID**.
+2. **Get the files.**
+   ```sh
+   git clone https://github.com/Seanachan/manaba-cli.git
+   cd manaba-cli/integrations/calendar-sync
+   ```
+3. **Install.**
+   ```sh
+   ./install.sh --calendar-id primary --lang en --time 22:00
+   ```
+4. **Test once now.** Expect a notification within about 2 minutes.
+   ```sh
+   launchctl kickstart gui/$(id -u)/io.github.seanachan.manaba-calendar-sync
+   tail ~/Library/Logs/manaba-calendar-sync.log
+   ```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--calendar-id ID` | required | calendar to write to (`primary` = your main calendar) |
+| `--lang ja\|en` | `ja` | language of event titles and descriptions |
+| `--time HH:MM` | `22:00` | daily run time, 24-hour clock |
+| `--model NAME` | `sonnet` | Claude model for the job |
+| `--budget USD` | `1` | stop a run that would cost more than this |
+| `--dry-run` | | write the files to a temporary folder and print where; install nothing |
+
+To change a setting, run `install.sh` again with the new options.
+
+## How it decides what is new
+
+The job searches your calendar for events that contain `manaba todo` and looks in their location
+and description for the task id (`_report_2001`, `_query_3002`, and so on). A task is skipped if its
+id appears in any event, so one event may cover several tasks.
+
+Two things follow:
+
+- **Keep the last line** of a generated description (`Check: manaba todo --course …`). Without it
+  the search does not find the event, and the job creates it again.
+- **Your own events count** if they contain `manaba todo` and the task URL. Paste the task URLs into
+  one event's description to cover several tasks with it.
+
+The job only adds events. It never moves an event when a teacher changes a deadline, and it never
+removes events for submitted tasks.
+
+## When it runs
+
+launchd starts the job at the set time. If the Mac is asleep then, the job runs when it wakes. If the
+Mac is shut down, that day's run is skipped, and the next run catches up on all pending tasks.
+
+## Files
+
+| Path | What |
+|---|---|
+| `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `config.env` |
+| `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | the schedule |
+| `~/Library/Logs/manaba-calendar-sync.log` | one entry per run |
+
+## Troubleshooting
+
+| Symptom | What to do |
+|---|---|
+| `FAILED: … Not logged in` | Run `manaba login --headed` once, then `manaba login --set-credentials` if the password changed. |
+| `FAILED: exit 1` with a connector error | Reconnect Google Calendar in claude.ai and rerun the check command above. |
+| No notification | Allow notifications for **Script Editor** in System Settings → Notifications. |
+| An event was created twice | Its description lost the `manaba todo` line or the task URL. Delete one copy and restore the line. |
+| Nothing happens at the set time | `launchctl print gui/$(id -u)/io.github.seanachan.manaba-calendar-sync` shows the state and the last exit code. |
+
+## Uninstall
+
+```sh
+./uninstall.sh
+```
+
+It stops the job and removes the installed files. The log stays in `~/Library/Logs/`.

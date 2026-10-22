@@ -188,6 +188,16 @@ manaba show https://manaba.tsukuba.ac.jp/ct/course_1001_drill_2002
 | 2 | 未ログイン、または SSO ログインの失敗 |
 | 3 | ページを解析できなかった（[トラブルシューティング](#トラブルシューティング) を参照） |
 
+## 連携機能
+
+JSON 出力を使ったオプションの追加機能です。[`integrations/`](integrations/) にあり、CLI と一緒にはインストールされません。
+
+| 連携 | 内容 |
+|---|---|
+| [Google カレンダー同期](integrations/calendar-sync/README.ja.md) | macOS。毎日 launchd が Claude Code を起動し、`manaba todo` の新しい締切を Google カレンダーに登録します。claude.ai のプランと Google カレンダーのコネクタが必要です。 |
+
+連携機能は manaba のデータをほかのサービスに送ることがあります。カレンダー同期は課題の内容を Anthropic と Google に送ります。CLI 本体は送りません（[セキュリティ](#セキュリティ)を参照）。
+
 ## 設定
 
 | 項目 | 場所 |
