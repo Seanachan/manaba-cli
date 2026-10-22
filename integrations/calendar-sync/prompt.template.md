@@ -10,7 +10,9 @@ calendarId `{{CALENDAR_ID}}`.
 3. List events in calendar `{{CALENDAR_ID}}` from 14 days before today to 91 days after today, with
    fullText "manaba todo" and pageSize 250 (follow nextPageToken until done). Every event this job
    creates contains `manaba todo`, so this skips unrelated events. Do not write or run scripts: compare
-   by reading the results yourself.
+   by reading the results yourself. If listing fails or is blocked, read the message, correct the call
+   once, and retry. If it still fails, stop and print `FAILED: could not list calendar events: <error>`.
+   Never create events unless the listing succeeded.
    A task is already covered if any event's location or description contains a manaba URL part
    `_<kind>_<number>` with the same kind and exactly the same whole number as the task, for example
    `_report_2001` for task kind "report", id 2001. Read the whole number: `_report_20015` is id 20015, a

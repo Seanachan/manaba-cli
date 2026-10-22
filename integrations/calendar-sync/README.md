@@ -35,8 +35,9 @@ writes events to **Google Calendar**. Install it only if you are fine with that.
 
 Three limits apply to every run:
 
-1. **Tools.** The job runs with `--permission-mode dontAsk`. Claude Code refuses every tool that is
-   not in the table below, without asking anyone.
+1. **Tools.** The job has two Claude Code tools (`--tools Bash,ToolSearch`): Bash, and ToolSearch,
+   which only loads tool definitions. With `--permission-mode dontAsk`, Claude Code refuses every
+   command and connector tool that is not in the table below, without asking anyone.
 2. **Calendar calls.** A hook (`guard.sh`) checks every calendar call before it runs. It allows only
    the calendar you chose and only the fields an event needs: no guests, attachments or Meet links.
    Text in a manaba page therefore cannot make Claude invite someone or read another calendar.
@@ -133,7 +134,7 @@ Mac is shut down, that day's run is skipped, and the next run catches up on all 
 | Symptom | What to do |
 |---|---|
 | `FAILED: … Not logged in` | Run `manaba login --headed` once, then `manaba login --set-credentials` if the password changed. |
-| `FAILED: exit 1` with a connector error | Reconnect Google Calendar in claude.ai and rerun the check command above. |
+| `FAILED` with a connector error, or `FAILED: no report` | Reconnect Google Calendar in claude.ai and rerun the check command above. |
 | No notification | Allow notifications for **Script Editor** in System Settings → Notifications. |
 | `blocked by manaba-calendar-sync guard` in the log | Claude tried a calendar call outside the limits, often because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
 | `FAILED: stopped after 15 minutes` | A run hung, usually on the network or a connector login, and was stopped. The next run tries again. If it repeats, run `~/.local/share/manaba-calendar-sync/run.sh` by hand and watch the log. |

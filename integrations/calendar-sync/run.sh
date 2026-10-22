@@ -36,19 +36,27 @@ prompt=${prompt//'{{NOW}}'/$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')}
 # folder has no such files, and no other user can write into it or its parents.
 work=$(mktemp -d "$(getconf DARWIN_USER_TEMP_DIR)manaba-calendar-sync.XXXXXX") \
   || fail "cannot create a work folder"
-claude_pid=""
-# Clean up on every exit. If run.sh itself is stopped, stop Claude too instead of leaving it running.
-cleanup() { [[ -n "$claude_pid" ]] && kill $claude_pid 2>/dev/null; rm -rf "$work"; }
+claude_pid="" watchdog=""
+# Clean up on every exit. If run.sh itself is stopped, stop Claude and the timer instead of leaving
+# them running.
+cleanup() {
+  [[ -n "$claude_pid" ]] && kill $claude_pid 2>/dev/null
+  [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
+  rm -rf "$work"
+}
 trap cleanup EXIT
 trap 'exit 143' INT TERM HUP
 cd "$work" || fail "cannot enter $work"
 
 # --setting-sources "" loads no user, project or local settings, which keeps the user's own CLAUDE.md,
 # hooks and plugins out of the job. --settings adds guard.sh as a hook on every calendar call.
-# dontAsk refuses every tool that is not in --allowedTools.
+# --tools keeps two built-in tools: Bash, and ToolSearch, which loads connector tool definitions on
+# demand (without it every connector's tools go into each request and a run costs several times more).
+# dontAsk refuses every Bash command and connector tool that is not in --allowedTools.
 claude -p "$prompt" \
   --model "${MANABA_SYNC_MODEL:-sonnet}" \
   --setting-sources "" \
+  --tools Bash,ToolSearch \
   --settings "$DIR/settings.json" \
   --permission-mode dontAsk \
   --allowedTools "Bash(manaba todo:*)" "Bash(manaba show:*)" "${CAL}__list_events" "${CAL}__create_event" \
@@ -64,15 +72,22 @@ wait $claude_pid
 rc=$?
 claude_pid=""
 kill $watchdog 2>/dev/null
+watchdog=""
 
 output=$(<"$work/output")
 [[ -f "$work/timed-out" ]] && output+=$'\n'"FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
 
-# Report this run only: the log holds every earlier run too.
-summary=$(print -r -- "$output" | grep -E '^(CREATED|FAILED)' | tail -1)
-# Claude can print FAILED for a step that failed and still exit 0; count that as a failure.
+# Report this run only: the log holds every earlier run too. Claude sometimes wraps the report line
+# in markdown (bold, a list item, indentation), so allow and strip that.
+summary=$(print -r -- "$output" | grep -E '^[[:space:]>*_`-]*(CREATED [0-9]+|FAILED:)' | tail -1 \
+  | sed -E 's/^[[:space:]>*_`-]+//; s/[[:space:]*_`]+$//')
+if [[ -z "$summary" ]]; then
+  summary="FAILED: no report (exit $rc), see $LOG"
+elif (( rc != 0 )) && [[ "$summary" != FAILED* ]]; then
+  summary="FAILED: exit $rc, see $LOG"
+fi
+# Claude can report FAILED, or no report at all, and still exit 0; count both as a failure.
 [[ "$summary" == FAILED* ]] && (( rc == 0 )) && rc=1
-(( rc != 0 )) && [[ "$summary" != FAILED* ]] && summary="FAILED: exit $rc, see $LOG"
 log "$output" $rc
-notify "${summary:-finished without a report, see $LOG}"
+notify "$summary"
 exit $rc

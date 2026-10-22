@@ -33,7 +33,7 @@ manaba-cli 本体が通信するのは manaba と大学のログインページ�
 
 実行のたびに 3 つの制限がかかります。
 
-1. **ツール：** ジョブは `--permission-mode dontAsk` で動きます。下の表にないツールは、誰にも確認せずに Claude Code が拒否します。
+1. **ツール：** ジョブが使える Claude Code のツールは Bash と、ツールの定義を読み込むだけの ToolSearch の 2 つです（`--tools Bash,ToolSearch`）。`--permission-mode dontAsk` により、下の表にないコマンドやツールは、誰にも確認せずに Claude Code が拒否します。
 2. **カレンダーの操作：** フック（`guard.sh`）がカレンダーの操作を実行前に毎回確認します。許可するのは選んだカレンダーと、予定に必要な項目だけです（ゲスト、添付ファイル、Meet リンクは不可）。manaba のページに何が書かれていても、Claude が誰かを招待したり、ほかのカレンダーを読んだりすることはできません。
 3. **自分の設定は使わない：** ジョブは自分専用の `settings.json` だけを読み込み（`--setting-sources ""`）、新しく作った非公開の一時フォルダで動きます。あなたの CLAUDE.md、フック、プラグインはジョブの中では動きません。
 
@@ -121,7 +121,7 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 | 症状 | 対処 |
 |---|---|
 | `FAILED: … Not logged in` | `manaba login --headed` を一度実行します。パスワードを変えた場合は `manaba login --set-credentials` も。 |
-| コネクタのエラーで `FAILED: exit 1` | claude.ai で Google カレンダーをつなぎ直し、上の確認コマンドをもう一度実行します。 |
+| コネクタのエラーの `FAILED`、または `FAILED: no report` | claude.ai で Google カレンダーをつなぎ直し、上の確認コマンドをもう一度実行します。 |
 | 通知が出ない | システム設定 → 通知 で **スクリプトエディタ** の通知を許可します。 |
 | ログに `blocked by manaba-calendar-sync guard` | Claude が制限外のカレンダー操作をしようとしました（ページの文面に誘導されたことが多い）。その操作は実行されていません。普通の課題で起きる場合は、その行を添えて issue を開いてください。 |
 | `FAILED: stopped after 15 minutes` | 実行が止まったまま（ネットワークやコネクタのログイン待ちなど）だったので打ち切りました。次の実行でもう一度試します。続く場合は `~/.local/share/manaba-calendar-sync/run.sh` を手動で実行してログを見てください。 |
