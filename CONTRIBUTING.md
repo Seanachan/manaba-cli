@@ -18,8 +18,10 @@ rule will not be merged, whatever else it does.
   `_STATE_CHANGING_LINK` with a test. Never request it.
 - **No form submissions** except the SSO login in `auth.py`. Never click
   Start/Submit/Post/Retract buttons, even in the browser.
-- **No new data leaves the machine.** No telemetry, and no requests to hosts other
-  than the configured manaba site and its IdP.
+- **No new data leaves the machine.** The CLI sends no telemetry and makes no requests
+  to hosts other than the configured manaba site and its IdP. Opt-in add-ons in
+  `integrations/` may send data elsewhere only if their README says, before install,
+  exactly what is sent and where.
 
 ## Development setup
 
@@ -45,6 +47,7 @@ CI runs the same checks on Ubuntu and macOS with Python 3.11, 3.12 and 3.13.
 | `src/manaba_cli/auth.py` | Playwright SSO login (the only form submission). |
 | `src/manaba_cli/parsers/` | Pure functions from `Page` (URL + HTML) to dataclasses in `models.py`. |
 | `src/manaba_cli/render.py` | Tables for people, JSON for machines. |
+| `integrations/` | Optional add-ons outside the CLI, with their own README. Not installed by `uv tool install`; the read-only rule still applies to anything they run against manaba. |
 | `tests/fixtures/` | Anonymized HTML used by the parser tests. |
 
 ## Adding or fixing a parser (fixture first)

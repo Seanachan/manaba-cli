@@ -203,6 +203,18 @@ strings removed) and status codes to stderr. `manaba --version` prints the versi
 | 2 | not logged in, or SSO login failed |
 | 3 | a page could not be parsed (see [Troubleshooting](#troubleshooting)) |
 
+## Integrations
+
+Optional add-ons built on the JSON output. They live in [`integrations/`](integrations/) and are not
+installed with the CLI.
+
+| Integration | What it does |
+|---|---|
+| [Google Calendar sync](integrations/calendar-sync/) | macOS. A daily launchd job runs Claude Code, which reads `manaba todo` and adds each new deadline to your Google Calendar. Needs a claude.ai plan and the Google Calendar connector. |
+
+An integration may send manaba data to other services. The calendar sync sends task details to
+Anthropic and Google. The CLI itself never does (see [Security notes](#security-notes)).
+
 ## Configuration
 
 | What | Where |
