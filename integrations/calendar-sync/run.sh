@@ -25,8 +25,12 @@ if ! zsystem flock -t 0 "$DIR/.lock" 2>/dev/null; then
   exit 0
 fi
 
-# Claude Code lets a tool call through when its hook cannot start, so never run without the guard.
+# Claude Code lets a tool call through when its hook cannot start, so never run without the guard:
+# guard.sh must be executable and settings.json must load it.
 [[ -x "$DIR/guard.sh" ]] || fail "$DIR/guard.sh is missing or not executable. Run install.sh again."
+hook=$(/usr/bin/plutil -extract hooks.PreToolUse.0.hooks.0.command raw -o - "$DIR/settings.json" 2>/dev/null)
+[[ -n "$hook" && "${${hook//\"/}:A}" == "$DIR/guard.sh" ]] \
+  || fail "$DIR/settings.json does not load guard.sh. Run install.sh again."
 
 # Claude Code knows today's date but not the time; the job needs both to skip past deadlines.
 prompt=$(<"$DIR/prompt.md")
@@ -37,10 +41,18 @@ prompt=${prompt//'{{NOW}}'/$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')}
 work=$(mktemp -d "$(getconf DARWIN_USER_TEMP_DIR)manaba-calendar-sync.XXXXXX") \
   || fail "cannot create a work folder"
 claude_pid="" watchdog=""
+# Claude and everything under it: Bash tool shells, manaba, a headless Chrome during a re-login.
+proc_tree() { local p; for p in $(pgrep -P $1 2>/dev/null); do proc_tree $p; done; print $1; }
+stop_claude() {  # ask the whole tree to stop, then kill whatever is left after $1 seconds
+  local pids=($(proc_tree $claude_pid))
+  kill -TERM $pids 2>/dev/null
+  zselect -t $(( $1 * 100 ))
+  kill -KILL $pids 2>/dev/null
+}
 # Clean up on every exit. If run.sh itself is stopped, stop Claude and the timer instead of leaving
 # them running.
 cleanup() {
-  [[ -n "$claude_pid" ]] && kill $claude_pid 2>/dev/null
+  [[ -n "$claude_pid" ]] && stop_claude 2
   [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
   rm -rf "$work"
 }
@@ -66,7 +78,7 @@ claude -p "$prompt" \
 claude_pid=$!
 
 # A hung run (stalled network, a connector waiting for a login) would otherwise block every later run.
-( trap - EXIT; zselect -t $(( TIMEOUT_S * 100 )); : > "$work/timed-out"; kill $claude_pid 2>/dev/null ) &
+( trap - EXIT; zselect -t $(( TIMEOUT_S * 100 )); : > "$work/timed-out"; stop_claude 10 ) &
 watchdog=$!
 wait $claude_pid
 rc=$?
@@ -77,10 +89,11 @@ watchdog=""
 output=$(<"$work/output")
 [[ -f "$work/timed-out" ]] && output+=$'\n'"FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
 
-# Report this run only: the log holds every earlier run too. Claude sometimes wraps the report line
-# in markdown (bold, a list item, indentation), so allow and strip that.
-summary=$(print -r -- "$output" | grep -E '^[[:space:]>*_`-]*(CREATED [0-9]+|FAILED:)' | tail -1 \
-  | sed -E 's/^[[:space:]>*_`-]+//; s/[[:space:]*_`]+$//')
+# Report this run only: the log holds every earlier run too. Claude sometimes formats the report line
+# as markdown (bold, heading, list item), so strip that before matching.
+summary=$(print -r -- "$output" \
+  | sed -E 's/[*_`#>]//g; s/^[[:space:]]*(([-+]|[0-9]+\.)[[:space:]]+)?//; s/[[:space:]]+$//' \
+  | grep -E '^(CREATED [0-9]+|FAILED:)' | tail -1)
 if [[ -z "$summary" ]]; then
   summary="FAILED: no report (exit $rc), see $LOG"
 elif (( rc != 0 )) && [[ "$summary" != FAILED* ]]; then

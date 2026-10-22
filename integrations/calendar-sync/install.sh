@@ -58,9 +58,15 @@ case "$lang" in
   *) die "--lang must be ja or en" ;;
 esac
 
-manaba_bin=$(command -v manaba) \
+# Look up real files: install.sh does not read ~/.zshrc, so a shell alias for claude is not visible.
+find_bin() {
+  local c
+  for c in "$(whence -p $1)" "${@:2}"; do [[ -x "$c" ]] && { print -r -- "$c"; return; }; done
+  return 1
+}
+manaba_bin=$(find_bin manaba ~/.local/bin/manaba) \
   || die "manaba not found. Install it: uv tool install git+https://github.com/Seanachan/manaba-cli"
-claude_bin=$(command -v claude) \
+claude_bin=$(find_bin claude ~/.local/bin/claude ~/.claude/local/claude) \
   || die "claude not found. Install Claude Code and log in with your claude.ai account first"
 
 # Replacing files or reloading the job mid-run would cut a sync off halfway. Every run holds
@@ -74,7 +80,7 @@ if (( ! dry_run )); then
     || die "a sync is running right now. Run install.sh again when it has finished (a few minutes)"
 fi
 
-status_json=$(manaba status --json 2>/dev/null || true)
+status_json=$("$manaba_bin" status --json 2>/dev/null || true)
 if [[ "$status_json" != *'"credentials_stored": true'* ]]; then
   print -u2 "warning: no stored manaba password. Run 'manaba login --set-credentials' so the job can log in again by itself."
 fi
@@ -120,11 +126,17 @@ if (( dry_run )); then
   exit 0
 fi
 
+# Unload a previous install first. bootout can return before the job is gone, so wait for it; if the
+# old job stayed loaded, a later check would mistake it for the new one.
 launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
-for attempt in 1 2 3; do
-  launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null && break
-  sleep 1  # bootout of a previous install can take a moment
+for attempt in {1..20}; do
+  launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 || break
+  sleep 0.25
 done
+if launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1; then
+  die "the previous job is still loaded. Run uninstall.sh, then install.sh again"
+fi
+launchctl bootstrap "$DOMAIN" "$PLIST" || die "launchctl could not load $PLIST"
 launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 || die "launchctl could not load $PLIST"
 
 cat <<EOF

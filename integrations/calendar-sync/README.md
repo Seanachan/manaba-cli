@@ -43,6 +43,8 @@ Three limits apply to every run:
    Text in a manaba page therefore cannot make Claude invite someone or read another calendar.
 3. **Your own setup stays out.** The job loads only its own `settings.json` (`--setting-sources ""`)
    and runs in a new private temporary folder. Your CLAUDE.md, hooks and plugins do not run inside it.
+   MCP servers you added to Claude Code yourself still start with each run (turning them off would
+   also turn off the claude.ai calendar connector), but the job cannot use their tools.
 
 | Allowed | Not allowed |
 |---|---|

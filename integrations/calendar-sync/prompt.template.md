@@ -32,7 +32,7 @@ calendarId `{{CALENDAR_ID}}`.
         then 2–6 short lines: what to submit and the key rules from the page. If the page text names a
         different date than the deadline field, say which one manaba enforces.
         last line: `{{CHECK}}manaba todo --course <course_id>`
-5. Print a final report, nothing else:
+5. Print a final report as plain text without markdown, nothing else:
    `CREATED <n>`, counting only create_event calls that succeeded, then one line per new event
    `- <deadline M/D HH:MM> <summary>`, then `SKIPPED (already in calendar) <n>`.
    If a call is blocked or fails, read the message, correct the call once, and retry. If any event still
