@@ -22,23 +22,19 @@ EOF
   exit "${1:-0}"
 }
 die() { print -u2 "error: $*"; exit 1; }
+need_value() { (( $# >= 2 )) || die "$1 needs a value"; }
 
 calendar_id="" lang="ja" run_time="22:00" model="sonnet" budget="1" dry_run=0
 while (( $# )); do
   case "$1" in
-    --calendar-id|--lang|--time|--model|--budget)
-      (( $# >= 2 )) || die "$1 needs a value"
-      case "$1" in
-        --calendar-id) calendar_id="$2" ;;
-        --lang) lang="$2" ;;
-        --time) run_time="$2" ;;
-        --model) model="$2" ;;
-        --budget) budget="$2" ;;
-      esac
-      shift 2 ;;
-    --dry-run) dry_run=1; shift ;;
-    -h|--help) usage ;;
-    *) print -u2 "unknown option: $1"; usage 1 ;;
+    --calendar-id) need_value "$@"; calendar_id="$2"; shift 2 ;;
+    --lang)        need_value "$@"; lang="$2"; shift 2 ;;
+    --time)        need_value "$@"; run_time="$2"; shift 2 ;;
+    --model)       need_value "$@"; model="$2"; shift 2 ;;
+    --budget)      need_value "$@"; budget="$2"; shift 2 ;;
+    --dry-run)     dry_run=1; shift ;;
+    -h|--help)     usage ;;
+    *)             print -u2 "unknown option: $1"; usage 1 ;;
   esac
 done
 
@@ -48,7 +44,7 @@ done
 [[ "$calendar_id" =~ '^[A-Za-z0-9._@+-]+$' ]] || die "--calendar-id has unexpected characters"
 [[ "$run_time" =~ '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' ]] || die "--time must be HH:MM, 24-hour"
 [[ "$model" =~ '^[A-Za-z0-9._-]+$' ]] || die "--model has unexpected characters"
-[[ "$budget" =~ '^[0-9]+(\.[0-9]+)?$' ]] || die "--budget must be a number"
+[[ "$budget" =~ '^[0-9]+(\.[0-9]+)?$' ]] && (( budget > 0 )) || die "--budget must be a number above 0"
 hour=$(( 10#${run_time%%:*} ))
 minute=$(( 10#${run_time##*:} ))
 
@@ -65,23 +61,15 @@ manaba_bin=$(command -v manaba) \
 claude_bin=$(command -v claude) \
   || die "claude not found. Install Claude Code and log in with your claude.ai account first"
 
+# Replacing files or reloading the job mid-run would cut a sync off halfway.
+if (( ! dry_run )) && launchctl print "$DOMAIN/$LABEL" 2>/dev/null | grep -q 'state = running'; then
+  die "a sync is running right now. Run install.sh again when it has finished (about 2 minutes)"
+fi
+
 status_json=$(manaba status --json 2>/dev/null || true)
 if [[ "$status_json" != *'"credentials_stored": true'* ]]; then
   print -u2 "warning: no stored manaba password. Run 'manaba login --set-credentials' so the job can log in again by itself."
 fi
-
-typeset -A vars=(
-  CALENDAR_ID "$calendar_id"  LANGUAGE "$language"  EXAMPLE_SUMMARY "$example"
-  DUE "$due"  RESUBMIT "$resubmit"  CHECK "$check"  DATE_FORMAT "$date_format"
-  LABEL "$LABEL"  RUN_SH "$DEST/run.sh"  HOUR "$hour"  MINUTE "$minute"
-  LAUNCHD_LOG "$HOME/Library/Logs/manaba-calendar-sync.launchd.log"
-)
-render() {  # replace every {{KEY}} in template $1 with vars[KEY]
-  local text key
-  text=$(<"$1")
-  for key in ${(k)vars}; do text=${text//"{{$key}}"/${vars[$key]}}; done
-  print -r -- "$text"
-}
 
 if (( dry_run )); then
   out=$(mktemp -d)
@@ -92,10 +80,26 @@ else
 fi
 mkdir -p "$out" "${plist_out:h}" "$HOME/Library/Logs"
 
+typeset -A vars=(
+  CALENDAR_ID "$calendar_id"  LANGUAGE "$language"  EXAMPLE_SUMMARY "$example"
+  DUE "$due"  RESUBMIT "$resubmit"  CHECK "$check"  DATE_FORMAT "$date_format"
+  LABEL "$LABEL"  RUN_SH "$out/run.sh"  GUARD_SH "$out/guard.sh"  HOUR "$hour"  MINUTE "$minute"
+  LAUNCHD_LOG "$HOME/Library/Logs/manaba-calendar-sync.launchd.log"
+)
+render() {  # replace every {{KEY}} in template $1 with vars[KEY]; {{NOW}} is left for run.sh
+  local text key
+  text=$(<"$1")
+  for key in ${(k)vars}; do text=${text//"{{$key}}"/${vars[$key]}}; done
+  print -r -- "$text"
+}
+
 render "$SRC/prompt.template.md" > "$out/prompt.md"
+render "$SRC/settings.template.json" > "$out/settings.json"
 install -m 755 "$SRC/run.sh" "$out/run.sh"
+install -m 755 "$SRC/guard.sh" "$out/guard.sh"
 {
   print -r -- "export PATH=${(q)${manaba_bin:h}}:${(q)${claude_bin:h}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+  print -r -- "MANABA_SYNC_CALENDAR_ID=${(q)calendar_id}"
   print -r -- "MANABA_SYNC_MODEL=${(q)model}"
   print -r -- "MANABA_SYNC_BUDGET_USD=${(q)budget}"
 } > "$out/config.env"
@@ -104,7 +108,7 @@ plutil -lint -s "$plist_out"
 
 if (( dry_run )); then
   print "Dry run: nothing installed. Rendered files:"
-  print -l "  $out/prompt.md" "  $out/run.sh" "  $out/config.env" "  $plist_out"
+  print -l "  $out/"{prompt.md,settings.json,run.sh,guard.sh,config.env} "  $plist_out"
   exit 0
 fi
 

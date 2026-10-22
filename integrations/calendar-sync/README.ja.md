@@ -5,7 +5,8 @@
 manaba の新しい締切を毎日 Google カレンダーに登録するジョブです。macOS 専用です。
 
 毎日決まった時刻に launchd が [Claude Code](https://docs.claude.com/en/docs/claude-code) をヘッドレスで起動します。
-Claude は `manaba todo` を実行し、カレンダーにまだない課題だけを `manaba show` で読んで、締切ごとに予定を 1 件作ります。
+Claude は `manaba todo --days 90` で 90 日以内が締切の課題を取得し、カレンダーにまだない課題だけを `manaba show` で読んで、締切ごとに予定を 1 件作ります。
+それより先の締切は、90 日以内に入った時点で登録されます。
 
 - 予定は締切の 15 分前に始まり、締切に終わります。
 - リマインダーは 1 日前と 3 時間前です。
@@ -30,12 +31,16 @@ manaba-cli 本体が通信するのは manaba と大学のログインページ�
 
 ## ジョブにできること・できないこと
 
-ジョブは `--permission-mode dontAsk` で動きます。下の表にないツールは、誰にも確認せずに Claude Code が拒否します。
+実行のたびに 3 つの制限がかかります。
+
+1. **ツール：** ジョブは `--permission-mode dontAsk` で動きます。下の表にないツールは、誰にも確認せずに Claude Code が拒否します。
+2. **カレンダーの操作：** フック（`guard.sh`）がカレンダーの操作を実行前に毎回確認します。許可するのは選んだカレンダーと、予定に必要な項目だけです（ゲスト、添付ファイル、Meet リンクは不可）。manaba のページに何が書かれていても、Claude が誰かを招待したり、ほかのカレンダーを読んだりすることはできません。
+3. **自分の設定は使わない：** ジョブは自分専用の設定（`--setting-sources project` と `settings.json`）だけを読み込みます。あなたの CLAUDE.md、フック、プラグインはジョブの中では動きません。
 
 | できる | できない |
 |---|---|
 | `manaba todo`、`manaba show`、`manaba status`（すべて読み取り専用） | それ以外のシェルコマンド、ファイル編集、Web アクセス |
-| Google カレンダーの予定の一覧と作成 | 予定の変更・削除、カレンダーの設定変更 |
+| 選んだカレンダーの予定の一覧と作成 | ほかのカレンダー、ゲスト、添付ファイル、予定の変更・削除 |
 
 1 回の実行が `--budget`（既定 1 USD）を超えそうになると止まります。使用量は Claude のプランから引かれます。
 
@@ -87,7 +92,7 @@ claude -p "List my Google calendars with their ids" \
 
 ## 新しい課題の判定方法
 
-ジョブは `manaba todo` を含む予定をカレンダーから検索し、その場所と説明に課題の ID（`_report_2001`、`_query_3002` など）があるかを見ます。
+ジョブは `manaba todo` を含む予定をカレンダーから検索し、その場所と説明に課題の ID（`_report_2001`、`_query_3002` など。直後に数字が続くものは別の ID とみなします）があるかを見ます。
 ID がどれかの予定に入っていれば、その課題は飛ばします。1 件の予定で複数の課題をまとめることもできます。
 
 そのため、次の 2 点に注意してください。
@@ -106,7 +111,7 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 
 | パス | 内容 |
 |---|---|
-| `~/.local/share/manaba-calendar-sync/` | `prompt.md`（ジョブへの指示）、`run.sh`、`config.env` |
+| `~/.local/share/manaba-calendar-sync/` | `prompt.md`（ジョブへの指示）、`run.sh`、`guard.sh`（カレンダー操作の確認）、`settings.json`（確認を読み込む設定）、`config.env` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | スケジュール |
 | `~/Library/Logs/manaba-calendar-sync.log` | 実行ごとの記録 |
 
@@ -117,6 +122,8 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 | `FAILED: … Not logged in` | `manaba login --headed` を一度実行します。パスワードを変えた場合は `manaba login --set-credentials` も。 |
 | コネクタのエラーで `FAILED: exit 1` | claude.ai で Google カレンダーをつなぎ直し、上の確認コマンドをもう一度実行します。 |
 | 通知が出ない | システム設定 → 通知 で **スクリプトエディタ** の通知を許可します。 |
+| ログに `blocked by manaba-calendar-sync guard` | Claude が制限外のカレンダー操作をしようとしました（ページの文面に誘導されたことが多い）。その操作は実行されていません。普通の課題で起きる場合は、その行を添えて issue を開いてください。 |
+| `install.sh` で `error: a sync is running right now` | 実行が終わるまで 2 分ほど待ち、もう一度 `install.sh` を実行します。 |
 | 同じ予定が 2 件できた | 説明から `manaba todo` の行か課題の URL が消えています。1 件を消して、その行を戻してください。 |
 | 設定した時刻に何も起きない | `launchctl print gui/$(id -u)/io.github.seanachan.manaba-calendar-sync` で状態と最後の終了コードを確認します。 |
 

@@ -5,8 +5,9 @@ English | [日本語](README.ja.md)
 A daily job that copies new manaba deadlines into your Google Calendar. macOS only.
 
 Every day at a time you choose, launchd starts [Claude Code](https://docs.claude.com/en/docs/claude-code)
-in headless mode. Claude runs `manaba todo`, checks which tasks are already in your calendar, reads
-each new task page with `manaba show`, and creates one event per new deadline:
+in headless mode. Claude lists the tasks due within 90 days with `manaba todo --days 90`, checks
+which are already in your calendar, reads each new task page with `manaba show`, and creates one
+event per new deadline. A task due later than that is added once it comes within 90 days.
 
 - The event ends at the deadline and starts 15 minutes before it.
 - Reminders fire 1 day and 3 hours before.
@@ -32,13 +33,20 @@ writes events to **Google Calendar**. Install it only if you are fine with that.
 
 ## What the job can and cannot do
 
-The job runs with `--permission-mode dontAsk`. Claude Code refuses every tool that is not listed
-below, without asking anyone.
+Three limits apply to every run:
+
+1. **Tools.** The job runs with `--permission-mode dontAsk`. Claude Code refuses every tool that is
+   not in the table below, without asking anyone.
+2. **Calendar calls.** A hook (`guard.sh`) checks every calendar call before it runs. It allows only
+   the calendar you chose and only the fields an event needs: no guests, attachments or Meet links.
+   Text in a manaba page therefore cannot make Claude invite someone or read another calendar.
+3. **Your own setup stays out.** The job loads only its own settings (`--setting-sources project`
+   plus its `settings.json`). Your CLAUDE.md, hooks and plugins do not run inside it.
 
 | Allowed | Not allowed |
 |---|---|
 | `manaba todo`, `manaba show`, `manaba status` (all read-only) | any other shell command, file edits, web access |
-| list events, create events in Google Calendar | edit or delete events, other calendars' settings |
+| list and create events in the calendar you chose | other calendars, guests, attachments, editing or deleting events |
 
 Each run also stops if it would cost more than `--budget` (default 1 USD). It runs on your Claude
 plan's usage.
@@ -93,8 +101,8 @@ To change a setting, run `install.sh` again with the new options.
 ## How it decides what is new
 
 The job searches your calendar for events that contain `manaba todo` and looks in their location
-and description for the task id (`_report_2001`, `_query_3002`, and so on). A task is skipped if its
-id appears in any event, so one event may cover several tasks.
+and description for the task id (`_report_2001`, `_query_3002`, and so on, not followed by another
+digit). A task is skipped if its id appears in any event, so one event may cover several tasks.
 
 Two things follow:
 
@@ -115,7 +123,7 @@ Mac is shut down, that day's run is skipped, and the next run catches up on all 
 
 | Path | What |
 |---|---|
-| `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `config.env` |
+| `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `guard.sh` (the calendar check), `settings.json` (loads the check), `config.env` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | the schedule |
 | `~/Library/Logs/manaba-calendar-sync.log` | one entry per run |
 
@@ -126,6 +134,8 @@ Mac is shut down, that day's run is skipped, and the next run catches up on all 
 | `FAILED: … Not logged in` | Run `manaba login --headed` once, then `manaba login --set-credentials` if the password changed. |
 | `FAILED: exit 1` with a connector error | Reconnect Google Calendar in claude.ai and rerun the check command above. |
 | No notification | Allow notifications for **Script Editor** in System Settings → Notifications. |
+| `blocked by manaba-calendar-sync guard` in the log | Claude tried a calendar call outside the limits, often because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
+| `error: a sync is running right now` from `install.sh` | Wait about 2 minutes for the run to finish, then run `install.sh` again. |
 | An event was created twice | Its description lost the `manaba todo` line or the task URL. Delete one copy and restore the line. |
 | Nothing happens at the set time | `launchctl print gui/$(id -u)/io.github.seanachan.manaba-calendar-sync` shows the state and the last exit code. |
 
