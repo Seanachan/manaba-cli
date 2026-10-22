@@ -7,12 +7,15 @@ CAL="mcp__claude_ai_Google_Calendar"
 LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"
 TIMEOUT_S=${MANABA_SYNC_TIMEOUT_S:-900}  # 15 minutes; a normal run takes under 2
 started=$(date '+%Y-%m-%d %H:%M:%S')
+have_lock=0
 
 log() {
   print -r -- "=== $started"$'\n'"$1"$'\n'"exit=$2" >> "$LOG"
-  # Keep the log small: once it passes 4000 lines, keep the newest 2000.
-  if (( $(wc -l < "$LOG") > 4000 )); then
-    tail -n 2000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+  # Keep the log small: once it passes 4000 lines, keep the newest 2000. Only the run holding the lock
+  # does this, so no other run or guard.sh is writing to the log at the same time.
+  if (( have_lock )) && (( $(wc -l < "$LOG") > 4000 )); then
+    local tmp
+    tmp=$(mktemp "$LOG.XXXXXX") && tail -n 2000 "$LOG" > "$tmp" && mv "$tmp" "$LOG"
   fi
 }
 notify() {
@@ -35,6 +38,7 @@ if ! zsystem flock -t 0 "$LOCK" 2>/dev/null; then
   notify "skipped: another sync or install.sh is running"
   exit 0
 fi
+have_lock=1
 
 # Claude Code lets a tool call through when its hook cannot start, so never run without the guard:
 # guard.sh must be executable and settings.json must load it.
@@ -42,6 +46,15 @@ fi
 hook=$(/usr/bin/plutil -extract hooks.PreToolUse.0.hooks.0.command raw -o - "$DIR/settings.json" 2>/dev/null)
 [[ -n "$hook" && "${${hook//\"/}:A}" == "$DIR/guard.sh" ]] \
   || fail "$DIR/settings.json does not load guard.sh. Run install.sh again."
+
+# launchd starts a run missed during sleep as soon as the Mac wakes, often before Wi-Fi is back. Wait up
+# to about 7 minutes for the manaba site; if it never answers, the run goes ahead and reports FAILED.
+if [[ -n "$MANABA_SYNC_BASE_URL" ]]; then
+  for attempt in {1..20}; do
+    curl -s -o /dev/null --max-time 5 "$MANABA_SYNC_BASE_URL" && break
+    zselect -t 1500
+  done
+fi
 
 # Claude Code knows today's date but not the time; the job needs both to skip past deadlines.
 prompt=$(<"$DIR/prompt.md")
@@ -117,10 +130,12 @@ claude_pid=""
 
 # Report this run only: the log holds every earlier run too. Claude sometimes formats the report line
 # as markdown (bold, heading, quote, list item), so strip that markup, and nothing else, before matching.
+# Any FAILED line wins over a CREATED line, wherever it appears.
 output=$(<"$work/output")
-summary=$(print -r -- "$output" \
-  | sed -E 's/\*\*//g; s/`//g; s/^[[:space:]>#*-]*//; s/^[0-9]+\.[[:space:]]+//; s/[[:space:]*]+$//' \
-  | grep -E '^(CREATED [0-9]+|FAILED:)' | tail -1)
+report=$(print -r -- "$output" \
+  | sed -E 's/\*\*//g; s/`//g; s/^[[:space:]>#*-]*//; s/^[0-9]+\.[[:space:]]+//; s/[[:space:]*]+$//')
+summary=$(print -r -- "$report" | grep -m1 -E '^FAILED:')
+[[ -z "$summary" ]] && summary=$(print -r -- "$report" | grep -E '^CREATED [0-9]+' | tail -1)
 if [[ -z "$summary" && -f "$work/timed-out" ]]; then
   summary="FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
   output+=$'\n'"$summary"

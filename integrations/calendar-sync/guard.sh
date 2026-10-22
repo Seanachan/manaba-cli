@@ -22,13 +22,14 @@ function run(argv) {
   if (toolName === "Bash") {
     const command = String(input.command || "").trim();
     if (!baseUrl) return "no manaba site configured";
-    // Exactly <site>/ct/course_N_<kind>_N, optionally quoted, with an optional query that has no shell
-    // metacharacters. Anchoring on the configured site leaves no room for extra path segments.
+    // Exactly <site>/ct/course_N_<kind>_N. A query (no shell metacharacters) is allowed only inside
+    // quotes: unquoted, zsh would treat its ? as a glob. Anchoring on the configured site leaves no room
+    // for extra path segments.
     const site = baseUrl.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");
+    const taskUrl = `${site}\\/ct\\/course_[0-9]+_(?:report|query|drill|survey)_[0-9]+`;
     const allowedCommands = [
       /^manaba todo( --json| --days [0-9]+)*$/,
-      new RegExp(`^manaba show ([\"']?)${site}\\/ct\\/course_[0-9]+_(report|query|drill|survey)_[0-9]+`
-                 + `(\\?[A-Za-z0-9=%._~-]*)?\\1( --json)?$`),
+      new RegExp(`^manaba show (${taskUrl}|([\"'])${taskUrl}(\\?[A-Za-z0-9=%._~-]*)?\\2)( --json)?$`),
     ];
     if (allowedCommands.some((pattern) => pattern.test(command))) return "ok";
     return `only "manaba todo" and "manaba show <task url>" may run, not: ${command.slice(0, 100)}`;

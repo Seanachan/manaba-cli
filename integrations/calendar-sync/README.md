@@ -114,16 +114,17 @@ Two things follow:
 
 - **Keep the last line** of a generated description (`Check: manaba todo --course …`). Without it
   the search does not find the event, and the job creates it again.
-- **Your own events count** if they contain `manaba todo` and the task URL, and are dated between
-  180 days ago and 91 days ahead. Paste the task URLs into one event's description to cover several
-  tasks with it.
+- **Your own events count** if they contain `manaba todo` and the task URL. Paste the task URLs into
+  one event's description to cover several tasks with it, and date that event at the earliest deadline
+  it covers: the job only checks events from 14 days ago to 91 days ahead.
 
 The job only adds events. It never moves an event when a teacher changes a deadline, and it never
 removes events for submitted tasks.
 
 ## When it runs
 
-launchd starts the job at the set time. If the Mac is asleep then, the job runs when it wakes. If the
+launchd starts the job at the set time. If the Mac is asleep then, the job runs when it wakes, after
+waiting up to about 7 minutes for the network. If the
 Mac is shut down, that day's run is skipped, and the next run catches up on all pending tasks.
 
 ## Files

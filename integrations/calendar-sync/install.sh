@@ -113,12 +113,16 @@ render() {  # replace every {{KEY}} in template $1 with vars[KEY]; {{NOW}} is le
   print -r -- "$text"
 }
 
-# Check the launchd file before replacing anything, so a bad render leaves the old install intact.
+# Check the launchd file and settings.json before replacing anything, so a bad render leaves the old
+# install intact.
 render "$SRC/launchd.plist.template" > "$plist_out.new"
 plutil -lint "$plist_out.new" >/dev/null || die "the rendered launchd file is invalid: $plist_out.new"
+render "$SRC/settings.template.json" > "$out/settings.json.new"
+hook=$(plutil -extract hooks.PreToolUse.0.hooks.0.command raw -o - "$out/settings.json.new" 2>/dev/null) || hook=""
+[[ "$hook" == "\"$out/guard.sh\"" ]] || die "the rendered settings.json is invalid: $out/settings.json.new"
 
 render "$SRC/prompt.template.md" > "$out/prompt.md"
-render "$SRC/settings.template.json" > "$out/settings.json"
+mv "$out/settings.json.new" "$out/settings.json"
 install -m 755 "$SRC/run.sh" "$out/run.sh"
 install -m 755 "$SRC/guard.sh" "$out/guard.sh"
 {
@@ -146,7 +150,10 @@ done
 if launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1; then
   die "the previous job is still loaded. Run uninstall.sh, then install.sh again"
 fi
-launchctl bootstrap "$DOMAIN" "$PLIST" || die "launchctl could not load $PLIST"
+# A label disabled earlier (launchctl disable) would make bootstrap fail.
+launchctl enable "$DOMAIN/$LABEL" 2>/dev/null || true
+launchctl bootstrap "$DOMAIN" "$PLIST" \
+  || die "launchctl could not load $PLIST. Nothing is scheduled now; to retry: launchctl bootstrap $DOMAIN $PLIST"
 launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 || die "launchctl could not load $PLIST"
 
 cat <<EOF
