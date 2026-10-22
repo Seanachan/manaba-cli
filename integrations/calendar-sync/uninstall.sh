@@ -3,13 +3,13 @@
 LABEL="io.github.seanachan.manaba-calendar-sync"
 DOMAIN="gui/$(id -u)"
 DEST="$HOME/.local/share/manaba-calendar-sync"
+LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"  # same file as run.sh
 
 # Deleting guard.sh under a running sync would leave its last calendar calls unchecked. Every run holds
-# $DEST/.lock, including runs started by hand.
+# $LOCK, including runs started by hand. The lock file stays, so it keeps working while $DEST goes.
 zmodload zsh/system
-if [[ -d "$DEST" ]]; then
-  : >> "$DEST/.lock"
-  if ! zsystem flock -t 0 "$DEST/.lock" 2>/dev/null; then
+if [[ -f "$LOCK" ]]; then
+  if ! zsystem flock -t 0 "$LOCK" 2>/dev/null; then
     print -u2 "error: a sync is running right now. Run uninstall.sh again when it has finished (a few minutes)"
     exit 1
   fi

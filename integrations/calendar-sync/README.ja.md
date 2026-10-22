@@ -115,6 +115,7 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 | `~/.local/share/manaba-calendar-sync/` | `prompt.md`（ジョブへの指示）、`run.sh`、`guard.sh`（カレンダー操作の確認）、`settings.json`（確認を読み込む設定）、`config.env` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | スケジュール |
 | `~/Library/Logs/manaba-calendar-sync.log` | 実行ごとの記録 |
+| `~/Library/Caches/manaba-calendar-sync.lock` | 実行が重ならないようにするためのファイル |
 
 ## トラブルシューティング
 

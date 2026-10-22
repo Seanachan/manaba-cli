@@ -20,7 +20,10 @@ function run(argv) {
     const command = String(input.command || "").trim();
     const allowedCommands = [
       /^manaba todo( --json| --days [0-9]+)*$/,
-      /^manaba show https:\/\/[A-Za-z0-9.-]+(:[0-9]+)?\/ct\/course_[0-9]+_(report|query|drill|survey)_[0-9]+( --json)?$/,
+      // A task URL, optionally quoted: any host (the CLI itself refuses hosts other than its site),
+      // optional path segments before /ct/ that cannot be "..", and an optional query without shell
+      // metacharacters.
+      /^manaba show (["']?)https?:\/\/[A-Za-z0-9.-]+(:[0-9]+)?(\/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)*\/ct\/course_[0-9]+_(report|query|drill|survey)_[0-9]+(\?[A-Za-z0-9=%._~-]*)?\1( --json)?$/,
     ];
     if (allowedCommands.some((pattern) => pattern.test(command))) return "ok";
     return `only "manaba todo" and "manaba show <task url>" may run, not: ${command.slice(0, 100)}`;
@@ -39,6 +42,8 @@ function run(argv) {
   // An omitted calendarId means the primary calendar, so require it to be spelled out.
   if (!input.calendarId) return `calendarId is missing: pass calendarId "${calendarId}"`;
   if (input.calendarId !== calendarId) return `only calendar "${calendarId}" may be used: pass exactly that calendarId`;
+  // Times are sent without an offset; without this they would be read in the account's own time zone.
+  if (tool === "create_event" && input.timeZone !== "Asia/Tokyo") return 'pass timeZone "Asia/Tokyo"';
   return "ok";
 }
 JS

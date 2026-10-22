@@ -132,6 +132,7 @@ Mac is shut down, that day's run is skipped, and the next run catches up on all 
 | `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `guard.sh` (the calendar check), `settings.json` (loads the check), `config.env` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | the schedule |
 | `~/Library/Logs/manaba-calendar-sync.log` | one entry per run |
+| `~/Library/Caches/manaba-calendar-sync.lock` | keeps two runs from overlapping |
 
 ## Troubleshooting
 

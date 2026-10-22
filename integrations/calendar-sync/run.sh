@@ -3,6 +3,8 @@
 DIR="${0:A:h}"
 LOG="$HOME/Library/Logs/manaba-calendar-sync.log"
 CAL="mcp__claude_ai_Google_Calendar"
+# Outside the install folder, so uninstall.sh can delete that folder while it holds the lock.
+LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"
 TIMEOUT_S=${MANABA_SYNC_TIMEOUT_S:-900}  # 15 minutes; a normal run takes under 2
 started=$(date '+%Y-%m-%d %H:%M:%S')
 
@@ -24,9 +26,11 @@ source "$DIR/config.env" 2>/dev/null || fail "cannot read $DIR/config.env. Run i
 
 # One run at a time: two overlapping runs would both see a task as new and both add it. install.sh and
 # uninstall.sh take the same lock before they change files. It is released when this script exits.
+# flock returns 1 for a busy lock and for a broken lock file alike, so check the file first.
 zmodload zsh/system zsh/zselect
-: >> "$DIR/.lock" 2>/dev/null || fail "cannot create $DIR/.lock. Run install.sh again."
-if ! zsystem flock -t 0 "$DIR/.lock" 2>/dev/null; then
+{ mkdir -p "${LOCK:h}"; : >> "$LOCK" } 2>/dev/null
+[[ -r "$LOCK" && -w "$LOCK" ]] || fail "cannot use the lock file $LOCK"
+if ! zsystem flock -t 0 "$LOCK" 2>/dev/null; then
   log "skipped: another sync or install.sh is running" 0
   notify "skipped: another sync or install.sh is running"
   exit 0
@@ -47,7 +51,7 @@ prompt=${prompt//'{{NOW}}'/$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')}
 # folder has no such files, and no other user can write into it or its parents.
 work=$(mktemp -d "$(getconf DARWIN_USER_TEMP_DIR)manaba-calendar-sync.XXXXXX") \
   || fail "cannot create a work folder"
-claude_pid="" watchdog=""
+claude_pid="" watchdog="" stopped=0
 # Claude runs in its own process group (set up below), so signalling the group reaches everything it
 # started, even processes whose parent already exited. The tree catches any that left the group.
 proc_tree() { local p; for p in $(pgrep -P $1 2>/dev/null); do proc_tree $p; done; print $1; }
@@ -62,10 +66,14 @@ stop_claude() {  # ask Claude and everything under it to stop, then kill what is
 cleanup() {
   [[ -n "$claude_pid" ]] && stop_claude 2
   [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
+  if (( stopped )); then  # record what the stopped run printed, so created events can be traced
+    log "$(<"$work/output" 2>/dev/null)"$'\n'"FAILED: stopped by a signal" 143
+    notify "FAILED: stopped by a signal, see $LOG"
+  fi
   rm -rf "$work"
 }
 trap cleanup EXIT
-trap 'exit 143' INT TERM HUP
+trap 'stopped=1; exit 143' INT TERM HUP
 cd "$work" || fail "cannot enter $work"
 
 # perl's setpgrp gives Claude its own process group before exec; zsh cannot do that without a terminal.
@@ -99,6 +107,8 @@ claude_pid=$!
 watchdog=$!
 wait $claude_pid
 rc=$?
+# Stop anything Claude left behind in its group (for example an MCP server that ignored the shutdown).
+(( $#in_own_group )) && kill -TERM -$claude_pid 2>/dev/null
 claude_pid=""
 # After a timeout, let the timer finish its forced kill; otherwise it is no longer needed.
 if [[ -f "$work/timed-out" ]]; then wait $watchdog; else kill $watchdog 2>/dev/null; fi

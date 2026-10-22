@@ -7,6 +7,7 @@ LABEL="io.github.seanachan.manaba-calendar-sync"
 DEST="$HOME/.local/share/manaba-calendar-sync"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 DOMAIN="gui/$(id -u)"
+LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"  # same file as run.sh
 
 usage() {
   cat <<'EOF'
@@ -69,14 +70,14 @@ manaba_bin=$(find_bin manaba ~/.local/bin/manaba) \
 claude_bin=$(find_bin claude ~/.local/bin/claude ~/.claude/local/claude) \
   || die "claude not found. Install Claude Code and log in with your claude.ai account first"
 
-# Replacing files or reloading the job mid-run would cut a sync off halfway. Every run holds
-# $DEST/.lock, including runs started by hand; holding it until install.sh exits also keeps a run
-# from starting while the files change.
+# Replacing files or reloading the job mid-run would cut a sync off halfway. Every run holds $LOCK,
+# including runs started by hand; holding it until install.sh exits also keeps a run from starting
+# while the files change.
 if (( ! dry_run )); then
   zmodload zsh/system
-  mkdir -p "$DEST"
-  : >> "$DEST/.lock"
-  zsystem flock -t 0 "$DEST/.lock" 2>/dev/null \
+  mkdir -p "${LOCK:h}"
+  : >> "$LOCK"
+  zsystem flock -t 0 "$LOCK" 2>/dev/null \
     || die "a sync is running right now. Run install.sh again when it has finished (a few minutes)"
 fi
 
@@ -107,6 +108,10 @@ render() {  # replace every {{KEY}} in template $1 with vars[KEY]; {{NOW}} is le
   print -r -- "$text"
 }
 
+# Check the launchd file before replacing anything, so a bad render leaves the old install intact.
+render "$SRC/launchd.plist.template" > "$plist_out.new"
+plutil -lint "$plist_out.new" >/dev/null || die "the rendered launchd file is invalid: $plist_out.new"
+
 render "$SRC/prompt.template.md" > "$out/prompt.md"
 render "$SRC/settings.template.json" > "$out/settings.json"
 install -m 755 "$SRC/run.sh" "$out/run.sh"
@@ -117,8 +122,7 @@ install -m 755 "$SRC/guard.sh" "$out/guard.sh"
   print -r -- "MANABA_SYNC_MODEL=${(q)model}"
   print -r -- "MANABA_SYNC_BUDGET_USD=${(q)budget}"
 } > "$out/config.env"
-render "$SRC/launchd.plist.template" > "$plist_out"
-plutil -lint -s "$plist_out"
+mv "$plist_out.new" "$plist_out"
 
 if (( dry_run )); then
   print "Dry run: nothing installed. Rendered files:"
