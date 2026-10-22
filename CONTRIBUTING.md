@@ -18,8 +18,10 @@ rule will not be merged, whatever else it does.
   `_STATE_CHANGING_LINK` with a test. Never request it.
 - **No form submissions** except the SSO login in `auth.py`. Never click
   Start/Submit/Post/Retract buttons, even in the browser.
-- **No new data leaves the machine.** No telemetry, and no requests to hosts other
-  than the configured manaba site and its IdP.
+- **No new data leaves the machine.** The CLI sends no telemetry and makes no requests
+  to hosts other than the configured manaba site and its IdP. Opt-in add-ons in
+  `integrations/` may send data elsewhere only if their README says, before install,
+  exactly what is sent and where.
 
 ## Development setup
 

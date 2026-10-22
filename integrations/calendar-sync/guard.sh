@@ -21,8 +21,9 @@ function run(argv) {
   if (!allowedFields) return `${tool} is not allowed`;
   const extra = Object.keys(input).filter((key) => !allowedFields.includes(key));
   if (extra.length) return `fields not allowed: ${extra.join(", ")}`;
-  // An omitted calendarId means the primary calendar.
-  if ((input.calendarId || "primary") !== calendarId) return `only calendar ${calendarId} may be used`;
+  // An omitted calendarId means the primary calendar, so require it to be spelled out.
+  if (!input.calendarId) return `calendarId is missing: pass calendarId "${calendarId}"`;
+  if (input.calendarId !== calendarId) return `only calendar "${calendarId}" may be used: pass exactly that calendarId`;
   return "ok";
 }
 JS

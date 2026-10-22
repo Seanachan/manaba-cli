@@ -63,11 +63,15 @@ manaba_bin=$(command -v manaba) \
 claude_bin=$(command -v claude) \
   || die "claude not found. Install Claude Code and log in with your claude.ai account first"
 
-# Replacing files or reloading the job mid-run would cut a sync off halfway.
+# Replacing files or reloading the job mid-run would cut a sync off halfway. Every run holds
+# $DEST/.lock, including runs started by hand; holding it until install.sh exits also keeps a run
+# from starting while the files change.
 if (( ! dry_run )); then
-  job_state=$(launchctl print "$DOMAIN/$LABEL" 2>/dev/null || true)
-  [[ "$job_state" != *'state = running'* ]] \
-    || die "a sync is running right now. Run install.sh again when it has finished (about 2 minutes)"
+  zmodload zsh/system
+  mkdir -p "$DEST"
+  : >> "$DEST/.lock"
+  zsystem flock -t 0 "$DEST/.lock" 2>/dev/null \
+    || die "a sync is running right now. Run install.sh again when it has finished (a few minutes)"
 fi
 
 status_json=$(manaba status --json 2>/dev/null || true)

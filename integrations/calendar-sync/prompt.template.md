@@ -31,5 +31,7 @@ calendarId `{{CALENDAR_ID}}`.
         different date than the deadline field, say which one manaba enforces.
         last line: `{{CHECK}}manaba todo --course <course_id>`
 5. Print a final report, nothing else:
-   `CREATED <n>`, then one line per new event `- <deadline M/D HH:MM> <summary>`,
-   then `SKIPPED (already in calendar) <n>`.
+   `CREATED <n>`, counting only create_event calls that succeeded, then one line per new event
+   `- <deadline M/D HH:MM> <summary>`, then `SKIPPED (already in calendar) <n>`.
+   If a call is blocked or fails, read the message, correct the call once, and retry. If any event still
+   could not be created, end the report with `FAILED: <n> events not created: <first error>`.
