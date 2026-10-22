@@ -158,4 +158,5 @@ whose deadline passed in between.
 ```
 
 It stops the job and removes the installed files, itself included. `./uninstall.sh` in this folder does
-the same. The log stays in `~/Library/Logs/`.
+the same; use it if that copy is missing (installs made before the copy was added). The log stays in
+`~/Library/Logs/`.

@@ -10,6 +10,11 @@ LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"  # same file as run.sh
 # $LOCK, including runs started by hand. The lock file stays, so it keeps working while $DEST goes.
 zmodload zsh/system
 if [[ -f "$LOCK" ]]; then
+  # flock fails the same way for a busy lock and for a lock file this user cannot open.
+  if [[ ! -r "$LOCK" || ! -w "$LOCK" ]]; then
+    print -u2 "error: cannot use the lock file $LOCK. Delete it, then run uninstall.sh again"
+    exit 1
+  fi
   if ! zsystem flock -t 0 "$LOCK" 2>/dev/null; then
     print -u2 "error: a sync is running right now. Run uninstall.sh again when it has finished (a few minutes)"
     exit 1

@@ -125,8 +125,9 @@ render "$SRC/prompt.template.md" > "$out/prompt.md"
 mv "$out/settings.json.new" "$out/settings.json"
 install -m 755 "$SRC/run.sh" "$out/run.sh"
 install -m 755 "$SRC/guard.sh" "$out/guard.sh"
-# A copy of uninstall.sh, so the job can be removed after the clone is deleted.
-install -m 755 "$SRC/uninstall.sh" "$out/uninstall.sh"
+# A copy of uninstall.sh, so the job can be removed after the clone is deleted. Not in a dry run: the
+# copy would remove the real install, not the dry-run folder.
+if (( ! dry_run )); then install -m 755 "$SRC/uninstall.sh" "$out/uninstall.sh"; fi
 {
   print -r -- "export PATH=${(q)${manaba_bin:h}}:${(q)${claude_bin:h}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
   print -r -- "MANABA_SYNC_CALENDAR_ID=${(q)calendar_id}"
@@ -142,7 +143,7 @@ mv "$plist_out.new" "$plist_out"
 
 if (( dry_run )); then
   print "Dry run: nothing installed. Rendered files:"
-  print -l "  $out/"{prompt.md,settings.json,run.sh,guard.sh,uninstall.sh,config.env} "  $plist_out"
+  print -l "  $out/"{prompt.md,settings.json,run.sh,guard.sh,config.env} "  $plist_out"
   exit 0
 fi
 
@@ -168,5 +169,5 @@ Installed. Runs every day at $(printf '%02d:%02d' $hour $minute), or at the next
   Run once now:  launchctl kickstart $DOMAIN/$LABEL
   Log:           ~/Library/Logs/manaba-calendar-sync.log
   Settings:      run install.sh again with new options
-  Uninstall:     $DEST/uninstall.sh
+  Uninstall:     ${(D)DEST}/uninstall.sh
 EOF
