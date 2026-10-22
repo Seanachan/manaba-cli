@@ -131,6 +131,10 @@ install -m 755 "$SRC/guard.sh" "$out/guard.sh"
   print -r -- "MANABA_SYNC_BASE_URL=${(q)base_url}"
   print -r -- "MANABA_SYNC_MODEL=${(q)model}"
   print -r -- "MANABA_SYNC_BUDGET_USD=${(q)budget}"
+  # manaba reads these from your shell setup, which launchd does not load: keep the values set now.
+  for var in MANABA_BASE_URL MANABA_USERNAME XDG_CONFIG_HOME XDG_CACHE_HOME; do
+    if [[ -n "${(P)var:-}" ]]; then print -r -- "export $var=${(q)${(P)var}}"; fi
+  done
 } > "$out/config.env"
 mv "$plist_out.new" "$plist_out"
 

@@ -7,16 +7,20 @@ CAL="mcp__claude_ai_Google_Calendar"
 LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"
 TIMEOUT_S=${MANABA_SYNC_TIMEOUT_S:-900}  # 15 minutes; a normal run takes under 2
 started=$(date '+%Y-%m-%d %H:%M:%S')
-have_lock=0
+zmodload zsh/system zsh/zselect
 
 log() {
+  # A skipped run writes here without the run lock, so every write also locks the log file itself.
+  # Trimming rewrites the file in place: a run waiting for the lock still appends to the same file.
+  local fd= tmp
+  { : >> "$LOG"; zsystem flock -t 5 -f fd "$LOG" } 2>/dev/null
   print -r -- "=== $started"$'\n'"$1"$'\n'"exit=$2" >> "$LOG"
-  # Keep the log small: once it passes 4000 lines, keep the newest 2000. Only the run holding the lock
-  # does this, so no other run or guard.sh is writing to the log at the same time.
-  if (( have_lock )) && (( $(wc -l < "$LOG") > 4000 )); then
-    local tmp
-    tmp=$(mktemp "$LOG.XXXXXX") && tail -n 2000 "$LOG" > "$tmp" && mv "$tmp" "$LOG"
+  # Keep the log small: once it passes 4000 lines, keep the newest 2000.
+  if (( $(wc -l < "$LOG") > 4000 )) && tmp=$(mktemp "$LOG.XXXXXX"); then
+    tail -n 2000 "$LOG" > "$tmp" && cat "$tmp" > "$LOG"
+    rm -f "$tmp"
   fi
+  [[ -n "$fd" ]] && zsystem flock -u $fd
 }
 notify() {
   osascript -e 'on run argv' -e 'display notification (item 1 of argv) with title "manaba calendar sync"' \
@@ -30,7 +34,6 @@ source "$DIR/config.env" 2>/dev/null || fail "cannot read $DIR/config.env. Run i
 # One run at a time: two overlapping runs would both see a task as new and both add it. install.sh and
 # uninstall.sh take the same lock before they change files. It is released when this script exits.
 # flock returns 1 for a busy lock and for a broken lock file alike, so check the file first.
-zmodload zsh/system zsh/zselect
 { mkdir -p "${LOCK:h}"; : >> "$LOCK" } 2>/dev/null
 [[ -r "$LOCK" && -w "$LOCK" ]] || fail "cannot use the lock file $LOCK"
 if ! zsystem flock -t 0 "$LOCK" 2>/dev/null; then
@@ -38,7 +41,33 @@ if ! zsystem flock -t 0 "$LOCK" 2>/dev/null; then
   notify "skipped: another sync or install.sh is running"
   exit 0
 fi
-have_lock=1
+
+work="" claude_pid="" watchdog="" stopped=0 logged=0
+# Claude runs in its own process group (set up below), so signalling the group reaches everything it
+# started, even processes whose parent already exited. The tree catches any that left the group.
+proc_tree() { local p; for p in $(pgrep -P $1 2>/dev/null); do proc_tree $p; done; print $1; }
+stop_claude() {  # ask Claude and everything under it to stop, then kill what is left after $1 seconds
+  local pids=($(proc_tree $claude_pid))
+  kill -TERM -$claude_pid $pids 2>/dev/null
+  zselect -t $(( $1 * 100 ))
+  kill -KILL -$claude_pid $pids 2>/dev/null
+}
+# What Claude printed, then the calls guard.sh blocked during this run.
+run_output() { [[ -n "$work" ]] && cat "$work/output" "$work/guard" 2>/dev/null }
+# Clean up on every exit. If run.sh itself is stopped, stop Claude and the timer instead of leaving
+# them running, and log the run even if it was still waiting for the network.
+cleanup() {
+  [[ -n "$claude_pid" ]] && stop_claude 2
+  [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
+  if (( stopped && ! logged )); then  # record what the stopped run printed, so created events can be traced
+    local out=$(run_output)
+    log "${out:+$out$'\n'}FAILED: stopped by a signal" 143
+    notify "FAILED: stopped by a signal, see $LOG"
+  fi
+  [[ -n "$work" ]] && rm -rf "$work"
+}
+trap cleanup EXIT
+trap 'stopped=1; exit 143' INT TERM HUP
 
 # Claude Code lets a tool call through when its hook cannot start, so never run without the guard:
 # guard.sh must be executable and settings.json must load it.
@@ -64,29 +93,6 @@ prompt=${prompt//'{{NOW}}'/$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')}
 # folder has no such files, and no other user can write into it or its parents.
 work=$(mktemp -d "$(getconf DARWIN_USER_TEMP_DIR)manaba-calendar-sync.XXXXXX") \
   || fail "cannot create a work folder"
-claude_pid="" watchdog="" stopped=0 logged=0
-# Claude runs in its own process group (set up below), so signalling the group reaches everything it
-# started, even processes whose parent already exited. The tree catches any that left the group.
-proc_tree() { local p; for p in $(pgrep -P $1 2>/dev/null); do proc_tree $p; done; print $1; }
-stop_claude() {  # ask Claude and everything under it to stop, then kill what is left after $1 seconds
-  local pids=($(proc_tree $claude_pid))
-  kill -TERM -$claude_pid $pids 2>/dev/null
-  zselect -t $(( $1 * 100 ))
-  kill -KILL -$claude_pid $pids 2>/dev/null
-}
-# Clean up on every exit. If run.sh itself is stopped, stop Claude and the timer instead of leaving
-# them running.
-cleanup() {
-  [[ -n "$claude_pid" ]] && stop_claude 2
-  [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
-  if (( stopped && ! logged )); then  # record what the stopped run printed, so created events can be traced
-    log "$(<"$work/output" 2>/dev/null)"$'\n'"FAILED: stopped by a signal" 143
-    notify "FAILED: stopped by a signal, see $LOG"
-  fi
-  rm -rf "$work"
-}
-trap cleanup EXIT
-trap 'stopped=1; exit 143' INT TERM HUP
 cd "$work" || fail "cannot enter $work"
 
 # perl's setpgrp gives Claude its own process group before exec; zsh cannot do that without a terminal.
@@ -98,7 +104,8 @@ in_own_group=()
 # --tools keeps two built-in tools: Bash, and ToolSearch, which loads connector tool definitions on
 # demand (without it every connector's tools go into each request and a run costs several times more).
 # dontAsk refuses every Bash command and connector tool that is not in --allowedTools.
-$in_own_group claude -p "$prompt" \
+# MANABA_SYNC_WORK tells guard.sh where to note blocked calls, so they land in this run's log entry.
+MANABA_SYNC_WORK="$work" $in_own_group claude -p "$prompt" \
   --model "${MANABA_SYNC_MODEL:-sonnet}" \
   --setting-sources "" \
   --tools Bash,ToolSearch \
@@ -146,6 +153,7 @@ elif (( rc != 0 )) && [[ "$summary" != FAILED* ]]; then
 fi
 # Claude can report FAILED, or no report at all, and still exit 0; count both as a failure.
 [[ "$summary" == FAILED* ]] && (( rc == 0 )) && rc=1
+[[ -s "$work/guard" ]] && output+=$'\n'"$(<"$work/guard")"
 log "$output" $rc
 logged=1
 notify "$summary"

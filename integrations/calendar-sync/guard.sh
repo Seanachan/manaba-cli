@@ -57,7 +57,13 @@ JS
 
 [[ "$verdict" == ok ]] && exit 0
 message="blocked by manaba-calendar-sync guard: ${verdict:-could not read the tool call}"
-# Claude sees stderr; the log line lets the user see it too.
-print -r -- "guard: $(date '+%Y-%m-%d %H:%M:%S') $message" >> "$HOME/Library/Logs/manaba-calendar-sync.log"
+# Claude sees stderr; the log line lets the user see it too. During a sync, run.sh adds the line to
+# that run's log entry; otherwise it goes straight to the log.
+line="guard: $(date '+%Y-%m-%d %H:%M:%S') $message"
+if [[ -n "$MANABA_SYNC_WORK" && -d "$MANABA_SYNC_WORK" ]]; then
+  print -r -- "$line" >> "$MANABA_SYNC_WORK/guard"
+else
+  print -r -- "$line" >> "$HOME/Library/Logs/manaba-calendar-sync.log"
+fi
 print -u2 -r -- "$message"
 exit 2

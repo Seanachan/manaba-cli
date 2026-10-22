@@ -10,7 +10,7 @@ which are already in your calendar, reads each new task page with `manaba show`,
 event per new deadline. A task due later than that is added once it comes within 90 days.
 
 - The event ends at the deadline and starts 15 minutes before it.
-- Reminders fire 1 day and 3 hours before.
+- Reminders fire 1 day and 3 hours before the event starts.
 - The location is the task URL, and the description summarizes what to submit.
 
 ```text
@@ -125,7 +125,8 @@ removes events for submitted tasks.
 
 launchd starts the job at the set time. If the Mac is asleep then, the job runs when it wakes, after
 waiting up to about 7 minutes for the network. If the
-Mac is shut down, that day's run is skipped, and the next run catches up on all pending tasks.
+Mac is shut down, that day's run is skipped. The next run adds every pending task, except a task
+whose deadline passed in between.
 
 ## Files
 
