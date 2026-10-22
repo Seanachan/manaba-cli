@@ -10,13 +10,15 @@ TIMEOUT_S=${MANABA_SYNC_TIMEOUT_S:-900}  # 15 minutes; a normal run takes under 
 started=$(date '+%Y-%m-%d %H:%M:%S')
 zmodload zsh/system zsh/zselect
 
+# log <exit code> <line>...: one entry per run. Empty lines are left out.
 log() {
   # A skipped run writes here without the run lock, so every write also takes a lock of its own. It
   # is a separate file: zsystem flock uses fcntl locks, which this shell drops as soon as it closes any
   # descriptor of the locked file, as the append below does.
-  local fd= tmp
+  local fd= tmp rc=$1
+  shift
   { : >> "$LOG_LOCK"; zsystem flock -t 5 -f fd "$LOG_LOCK" } 2>/dev/null
-  print -r -- "=== $started"$'\n'"$1"$'\n'"exit=$2" >> "$LOG"
+  print -rl -- "=== $started" "${(@)@:#}" "exit=$rc" >> "$LOG"
   # Keep the log small: once it passes 4000 lines, keep the newest 2000.
   if (( $(wc -l < "$LOG") > 4000 )) && tmp=$(mktemp "$LOG.XXXXXX"); then
     tail -n 2000 "$LOG" > "$tmp" && cat "$tmp" > "$LOG"
@@ -28,7 +30,7 @@ notify() {
   osascript -e 'on run argv' -e 'display notification (item 1 of argv) with title "manaba calendar sync"' \
     -e 'end run' "$1" 2>/dev/null
 }
-fail() { log "FAILED: $1" 1; notify "FAILED: $1"; exit 1; }
+fail() { log 1 "FAILED: $1"; notify "FAILED: $1"; exit 1; }
 
 # Written by install.sh: PATH, MANABA_SYNC_CALENDAR_ID, MANABA_SYNC_MODEL, MANABA_SYNC_BUDGET_USD.
 source "$DIR/config.env" 2>/dev/null || fail "cannot read $DIR/config.env. Run install.sh again."
@@ -39,7 +41,7 @@ source "$DIR/config.env" 2>/dev/null || fail "cannot read $DIR/config.env. Run i
 { mkdir -p "${LOCK:h}"; : >> "$LOCK" } 2>/dev/null
 [[ -r "$LOCK" && -w "$LOCK" ]] || fail "cannot use the lock file $LOCK"
 if ! zsystem flock -t 0 "$LOCK" 2>/dev/null; then
-  log "skipped: another sync or install.sh is running" 0
+  log 0 "skipped: another sync or install.sh is running"
   notify "skipped: another sync or install.sh is running"
   exit 0
 fi
@@ -54,16 +56,15 @@ stop_claude() {  # ask Claude and everything under it to stop, then kill what is
   zselect -t $(( $1 * 100 ))
   kill -KILL -$claude_pid $pids 2>/dev/null
 }
-# What Claude printed, then the calls guard.sh blocked during this run.
-run_output() { [[ -n "$work" ]] && cat "$work/output" "$work/guard" 2>/dev/null }
+# A file in the work folder: output (what Claude printed) or guard (the calls guard.sh blocked).
+work_file() { [[ -n "$work" ]] && cat "$work/$1" 2>/dev/null }
 # Clean up on every exit. If run.sh itself is stopped, stop Claude and the timer instead of leaving
 # them running, and log the run even if it was still waiting for the network.
 cleanup() {
   [[ -n "$claude_pid" ]] && stop_claude 2
   [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
   if (( stopped && ! logged )); then  # record what the stopped run printed, so created events can be traced
-    local out=$(run_output)
-    log "${out:+$out$'\n'}FAILED: stopped by a signal" 143
+    log 143 "$(work_file output)" "$(work_file guard)" "FAILED: stopped by a signal"
     notify "FAILED: stopped by a signal, see $LOG"
   fi
   [[ -n "$work" ]] && rm -rf "$work"
@@ -140,23 +141,24 @@ claude_pid=""
 # Report this run only: the log holds every earlier run too. Claude sometimes formats the report line
 # as markdown (bold, heading, quote, list item), so strip that markup, and nothing else, before matching.
 # Any FAILED line wins over a CREATED line, wherever it appears.
-output=$(<"$work/output")
+output=$(work_file output)
 report=$(print -r -- "$output" \
   | sed -E 's/\*\*//g; s/`//g; s/^[[:space:]>#*-]*//; s/^[0-9]+\.[[:space:]]+//; s/[[:space:]*]+$//')
 summary=$(print -r -- "$report" | grep -m1 -E '^FAILED:')
 [[ -z "$summary" ]] && summary=$(print -r -- "$report" | grep -E '^CREATED [0-9]+' | tail -1)
+# run.sh's own verdict, when Claude gave no report or its report does not match its exit code.
+verdict=""
 if [[ -z "$summary" && -f "$work/timed-out" ]]; then
-  summary="FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
-  output+=$'\n'"$summary"
+  verdict="FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
 elif [[ -z "$summary" ]]; then
-  summary="FAILED: no report (exit $rc), see $LOG"
+  verdict="FAILED: no report (exit $rc)"
 elif (( rc != 0 )) && [[ "$summary" != FAILED* ]]; then
-  summary="FAILED: exit $rc, see $LOG"
+  verdict="FAILED: exit $rc"
 fi
+[[ -n "$verdict" ]] && summary="$verdict, see $LOG"
 # Claude can report FAILED, or no report at all, and still exit 0; count both as a failure.
 [[ "$summary" == FAILED* ]] && (( rc == 0 )) && rc=1
-[[ -s "$work/guard" ]] && output+=$'\n'"$(<"$work/guard")"
-log "$output" $rc
+log $rc "$output" "$(work_file guard)" "$verdict"
 logged=1
 notify "$summary"
 exit $rc
