@@ -22,7 +22,7 @@ EOF
   exit "${1:-0}"
 }
 die() { print -u2 "error: $*"; exit 1; }
-need_value() { (( $# >= 2 )) || die "$1 needs a value"; }
+need_value() { (( $# >= 2 )) && [[ "$2" != -* ]] || die "$1 needs a value"; }
 
 calendar_id="" lang="ja" run_time="22:00" model="sonnet" budget="1" dry_run=0
 while (( $# )); do
@@ -40,7 +40,9 @@ done
 
 [[ "$(uname -s)" == Darwin ]] || die "macOS only: the job is scheduled with launchd"
 [[ -n "$calendar_id" ]] || usage 1
-# Values end up in a prompt, a plist and a sourced file, so allow only plain characters.
+# Values end up in a prompt, a plist, a JSON hook command and a sourced file, so allow only plain
+# characters. Install paths start with $HOME, so it is checked too.
+[[ "$HOME" =~ '^[A-Za-z0-9._/ -]+$' ]] || die "this installer cannot handle the home folder path $HOME"
 [[ "$calendar_id" =~ '^[A-Za-z0-9._@+-]+$' ]] || die "--calendar-id has unexpected characters"
 [[ "$run_time" =~ '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' ]] || die "--time must be HH:MM, 24-hour"
 [[ "$model" =~ '^[A-Za-z0-9._-]+$' ]] || die "--model has unexpected characters"
@@ -62,8 +64,10 @@ claude_bin=$(command -v claude) \
   || die "claude not found. Install Claude Code and log in with your claude.ai account first"
 
 # Replacing files or reloading the job mid-run would cut a sync off halfway.
-if (( ! dry_run )) && launchctl print "$DOMAIN/$LABEL" 2>/dev/null | grep -q 'state = running'; then
-  die "a sync is running right now. Run install.sh again when it has finished (about 2 minutes)"
+if (( ! dry_run )); then
+  job_state=$(launchctl print "$DOMAIN/$LABEL" 2>/dev/null || true)
+  [[ "$job_state" != *'state = running'* ]] \
+    || die "a sync is running right now. Run install.sh again when it has finished (about 2 minutes)"
 fi
 
 status_json=$(manaba status --json 2>/dev/null || true)

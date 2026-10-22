@@ -45,7 +45,7 @@ Three limits apply to every run:
 
 | Allowed | Not allowed |
 |---|---|
-| `manaba todo`, `manaba show`, `manaba status` (all read-only) | any other shell command, file edits, web access |
+| `manaba todo`, `manaba show` (both read-only) | any other shell command, file edits, web access |
 | list and create events in the calendar you chose | other calendars, guests, attachments, editing or deleting events |
 
 Each run also stops if it would cost more than `--budget` (default 1 USD). It runs on your Claude
@@ -102,7 +102,8 @@ To change a setting, run `install.sh` again with the new options.
 
 The job searches your calendar for events that contain `manaba todo` and looks in their location
 and description for the task id (`_report_2001`, `_query_3002`, and so on, not followed by another
-digit). A task is skipped if its id appears in any event, so one event may cover several tasks.
+digit). A task is skipped if its id appears in any event, so one event may cover several tasks. Claude does
+this comparison itself, so on rare occasions it may add an event twice; delete the extra copy.
 
 Two things follow:
 
@@ -135,6 +136,7 @@ Mac is shut down, that day's run is skipped, and the next run catches up on all 
 | `FAILED: exit 1` with a connector error | Reconnect Google Calendar in claude.ai and rerun the check command above. |
 | No notification | Allow notifications for **Script Editor** in System Settings → Notifications. |
 | `blocked by manaba-calendar-sync guard` in the log | Claude tried a calendar call outside the limits, often because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
+| `skipped: another sync is running` in the log | Two runs overlapped (for example a manual run and the scheduled one). The second one stopped without doing anything. |
 | `error: a sync is running right now` from `install.sh` | Wait about 2 minutes for the run to finish, then run `install.sh` again. |
 | An event was created twice | Its description lost the `manaba todo` line or the task URL. Delete one copy and restore the line. |
 | Nothing happens at the set time | `launchctl print gui/$(id -u)/io.github.seanachan.manaba-calendar-sync` shows the state and the last exit code. |
