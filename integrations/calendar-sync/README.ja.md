@@ -112,10 +112,10 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 
 | パス | 内容 |
 |---|---|
-| `~/.local/share/manaba-calendar-sync/` | `prompt.md`（ジョブへの指示）、`run.sh`、`guard.sh`（カレンダー操作の確認）、`settings.json`（確認を読み込む設定）、`config.env` |
+| `~/.local/share/manaba-calendar-sync/` | `prompt.md`（ジョブへの指示）、`run.sh`、`guard.sh`（コマンドとカレンダー操作の確認）、`settings.json`（確認を読み込む設定）、`config.env` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | スケジュール |
 | `~/Library/Logs/manaba-calendar-sync.log` | 実行ごとの記録 |
-| `~/Library/Caches/manaba-calendar-sync.lock` | 実行が重ならないようにするためのファイル |
+| `~/Library/Caches/manaba-calendar-sync.lock`、`manaba-calendar-sync-log.lock` | 実行やログへの書き込みが重ならないようにするためのファイル |
 
 ## トラブルシューティング
 
@@ -124,7 +124,7 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 | `FAILED: … Not logged in` | `manaba login --headed` を一度実行します。パスワードを変えた場合は `manaba login --set-credentials` も。 |
 | コネクタのエラーの `FAILED`、または `FAILED: no report` | claude.ai で Google カレンダーをつなぎ直し、上の確認コマンドをもう一度実行します。 |
 | 通知が出ない | システム設定 → 通知 で **スクリプトエディタ** の通知を許可します。 |
-| ログに `guard: blocked …` の行 | Claude が制限外のカレンダー操作をしようとしました（ページの文面に誘導されたことが多い）。その操作は実行されていません。普通の課題で起きる場合は、その行を添えて issue を開いてください。 |
+| ログに `guard: blocked …` の行 | Claude が制限外のコマンドやカレンダー操作をしようとしました（ページの文面に誘導されることもあります）。その操作は実行されていません。普通の課題で起きる場合は、その行を添えて issue を開いてください。 |
 | `FAILED: stopped after 15 minutes` | 実行が止まったまま（ネットワークやコネクタのログイン待ちなど）だったので打ち切りました。次の実行でもう一度試します。続く場合は `~/.local/share/manaba-calendar-sync/run.sh` を手動で実行してログを見てください。 |
 | `skipped: another sync or install.sh is running` | 実行が重なったか、定時に `install.sh` が動いていました。飛ばされた実行は何もしていません。次の実行で取り戻します。 |
 | `install.sh` で `error: a sync is running right now` | 実行が終わるまで 2 分ほど待ち、もう一度 `install.sh` を実行します。 |

@@ -5,15 +5,17 @@ LOG="$HOME/Library/Logs/manaba-calendar-sync.log"
 CAL="mcp__claude_ai_Google_Calendar"
 # Outside the install folder, so uninstall.sh can delete that folder while it holds the lock.
 LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"
+LOG_LOCK="$HOME/Library/Caches/manaba-calendar-sync-log.lock"
 TIMEOUT_S=${MANABA_SYNC_TIMEOUT_S:-900}  # 15 minutes; a normal run takes under 2
 started=$(date '+%Y-%m-%d %H:%M:%S')
 zmodload zsh/system zsh/zselect
 
 log() {
-  # A skipped run writes here without the run lock, so every write also locks the log file itself.
-  # Trimming rewrites the file in place: a run waiting for the lock still appends to the same file.
+  # A skipped run writes here without the run lock, so every write also takes a lock of its own. It
+  # is a separate file: zsystem flock uses fcntl locks, which this shell drops as soon as it closes any
+  # descriptor of the locked file, as the append below does.
   local fd= tmp
-  { : >> "$LOG"; zsystem flock -t 5 -f fd "$LOG" } 2>/dev/null
+  { : >> "$LOG_LOCK"; zsystem flock -t 5 -f fd "$LOG_LOCK" } 2>/dev/null
   print -r -- "=== $started"$'\n'"$1"$'\n'"exit=$2" >> "$LOG"
   # Keep the log small: once it passes 4000 lines, keep the newest 2000.
   if (( $(wc -l < "$LOG") > 4000 )) && tmp=$(mktemp "$LOG.XXXXXX"); then

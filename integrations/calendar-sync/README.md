@@ -132,10 +132,10 @@ whose deadline passed in between.
 
 | Path | What |
 |---|---|
-| `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `guard.sh` (the calendar check), `settings.json` (loads the check), `config.env` |
+| `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `guard.sh` (checks commands and calendar calls), `settings.json` (loads the check), `config.env` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | the schedule |
 | `~/Library/Logs/manaba-calendar-sync.log` | one entry per run |
-| `~/Library/Caches/manaba-calendar-sync.lock` | keeps two runs from overlapping |
+| `~/Library/Caches/manaba-calendar-sync.lock`, `manaba-calendar-sync-log.lock` | keep two runs, and two writes to the log, from overlapping |
 
 ## Troubleshooting
 
@@ -144,7 +144,7 @@ whose deadline passed in between.
 | `FAILED: … Not logged in` | Run `manaba login --headed` once, then `manaba login --set-credentials` if the password changed. |
 | `FAILED` with a connector error, or `FAILED: no report` | Reconnect Google Calendar in claude.ai and rerun the check command above. |
 | No notification | Allow notifications for **Script Editor** in System Settings → Notifications. |
-| `guard: blocked …` lines in the log | Claude tried a calendar call outside the limits, often because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
+| `guard: blocked …` lines in the log | Claude tried a command or calendar call outside the limits, sometimes because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
 | `FAILED: stopped after 15 minutes` | A run hung, usually on the network or a connector login, and was stopped. The next run tries again. If it repeats, run `~/.local/share/manaba-calendar-sync/run.sh` by hand and watch the log. |
 | `skipped: another sync or install.sh is running` | Two runs overlapped, or `install.sh` was running at the scheduled time. The skipped run did nothing; the next run catches up. |
 | `error: a sync is running right now` from `install.sh` | Wait about 2 minutes for the run to finish, then run `install.sh` again. |
