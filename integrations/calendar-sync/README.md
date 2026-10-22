@@ -114,8 +114,9 @@ Two things follow:
 
 - **Keep the last line** of a generated description (`Check: manaba todo --course …`). Without it
   the search does not find the event, and the job creates it again.
-- **Your own events count** if they contain `manaba todo` and the task URL. Paste the task URLs into
-  one event's description to cover several tasks with it.
+- **Your own events count** if they contain `manaba todo` and the task URL, and are dated between
+  180 days ago and 91 days ahead. Paste the task URLs into one event's description to cover several
+  tasks with it.
 
 The job only adds events. It never moves an event when a teacher changes a deadline, and it never
 removes events for submitted tasks.
@@ -141,7 +142,7 @@ Mac is shut down, that day's run is skipped, and the next run catches up on all 
 | `FAILED: … Not logged in` | Run `manaba login --headed` once, then `manaba login --set-credentials` if the password changed. |
 | `FAILED` with a connector error, or `FAILED: no report` | Reconnect Google Calendar in claude.ai and rerun the check command above. |
 | No notification | Allow notifications for **Script Editor** in System Settings → Notifications. |
-| `blocked by manaba-calendar-sync guard` in the log | Claude tried a calendar call outside the limits, often because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
+| `guard: blocked …` lines in the log | Claude tried a calendar call outside the limits, often because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
 | `FAILED: stopped after 15 minutes` | A run hung, usually on the network or a connector login, and was stopped. The next run tries again. If it repeats, run `~/.local/share/manaba-calendar-sync/run.sh` by hand and watch the log. |
 | `skipped: another sync or install.sh is running` | Two runs overlapped, or `install.sh` was running at the scheduled time. The skipped run did nothing; the next run catches up. |
 | `error: a sync is running right now` from `install.sh` | Wait about 2 minutes for the run to finish, then run `install.sh` again. |

@@ -51,7 +51,7 @@ prompt=${prompt//'{{NOW}}'/$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')}
 # folder has no such files, and no other user can write into it or its parents.
 work=$(mktemp -d "$(getconf DARWIN_USER_TEMP_DIR)manaba-calendar-sync.XXXXXX") \
   || fail "cannot create a work folder"
-claude_pid="" watchdog="" stopped=0
+claude_pid="" watchdog="" stopped=0 logged=0
 # Claude runs in its own process group (set up below), so signalling the group reaches everything it
 # started, even processes whose parent already exited. The tree catches any that left the group.
 proc_tree() { local p; for p in $(pgrep -P $1 2>/dev/null); do proc_tree $p; done; print $1; }
@@ -66,7 +66,7 @@ stop_claude() {  # ask Claude and everything under it to stop, then kill what is
 cleanup() {
   [[ -n "$claude_pid" ]] && stop_claude 2
   [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
-  if (( stopped )); then  # record what the stopped run printed, so created events can be traced
+  if (( stopped && ! logged )); then  # record what the stopped run printed, so created events can be traced
     log "$(<"$work/output" 2>/dev/null)"$'\n'"FAILED: stopped by a signal" 143
     notify "FAILED: stopped by a signal, see $LOG"
   fi
@@ -99,7 +99,7 @@ claude_pid=$!
 
 # A hung run (stalled network, a connector waiting for a login) would otherwise block every later run.
 # The timer marks the run as timed out only if Claude is still running when it fires.
-( trap - EXIT
+( trap - EXIT INT TERM HUP
   zselect -t $(( TIMEOUT_S * 100 ))
   kill -0 $claude_pid 2>/dev/null || exit 0
   : > "$work/timed-out"
@@ -107,12 +107,13 @@ claude_pid=$!
 watchdog=$!
 wait $claude_pid
 rc=$?
-# Stop anything Claude left behind in its group (for example an MCP server that ignored the shutdown).
-(( $#in_own_group )) && kill -TERM -$claude_pid 2>/dev/null
-claude_pid=""
-# After a timeout, let the timer finish its forced kill; otherwise it is no longer needed.
+# After a timeout, let the timer finish its forced kill; otherwise it is no longer needed. claude_pid
+# stays set until then, so a signal arriving meanwhile still makes cleanup stop the process group.
 if [[ -f "$work/timed-out" ]]; then wait $watchdog; else kill $watchdog 2>/dev/null; fi
 watchdog=""
+# Stop anything Claude left behind in its group (for example an MCP server that ignored the shutdown).
+(( $#in_own_group )) && pgrep -g $claude_pid >/dev/null 2>&1 && stop_claude 2
+claude_pid=""
 
 # Report this run only: the log holds every earlier run too. Claude sometimes formats the report line
 # as markdown (bold, heading, quote, list item), so strip that markup, and nothing else, before matching.
@@ -131,5 +132,6 @@ fi
 # Claude can report FAILED, or no report at all, and still exit 0; count both as a failure.
 [[ "$summary" == FAILED* ]] && (( rc == 0 )) && rc=1
 log "$output" $rc
+logged=1
 notify "$summary"
 exit $rc

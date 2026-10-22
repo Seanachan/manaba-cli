@@ -82,6 +82,11 @@ if (( ! dry_run )); then
 fi
 
 status_json=$("$manaba_bin" status --json 2>/dev/null || true)
+# The guard only lets Claude read task pages on this site.
+base_url=""
+[[ "$status_json" =~ '"base_url": "([^"]+)"' ]] && base_url=${match[1]%/}
+[[ "$base_url" =~ '^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~-]+)*$' ]] \
+  || die "could not read the manaba site from 'manaba status --json'. Check that manaba-cli works, then try again"
 if [[ "$status_json" != *'"credentials_stored": true'* ]]; then
   print -u2 "warning: no stored manaba password. Run 'manaba login --set-credentials' so the job can log in again by itself."
 fi
@@ -119,6 +124,7 @@ install -m 755 "$SRC/guard.sh" "$out/guard.sh"
 {
   print -r -- "export PATH=${(q)${manaba_bin:h}}:${(q)${claude_bin:h}}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
   print -r -- "MANABA_SYNC_CALENDAR_ID=${(q)calendar_id}"
+  print -r -- "MANABA_SYNC_BASE_URL=${(q)base_url}"
   print -r -- "MANABA_SYNC_MODEL=${(q)model}"
   print -r -- "MANABA_SYNC_BUDGET_USD=${(q)budget}"
 } > "$out/config.env"

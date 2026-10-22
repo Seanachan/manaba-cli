@@ -7,7 +7,7 @@ calendarId `{{CALENDAR_ID}}`.
 
 1. Run `manaba todo --json --days 90`. If it fails, stop and print `FAILED: <first error line>`.
 2. Keep tasks whose `deadline` is later than the current time. Ignore the rest.
-3. List events in calendar `{{CALENDAR_ID}}` from 14 days before today to 91 days after today, with
+3. List events in calendar `{{CALENDAR_ID}}` from 180 days before today to 91 days after today, with
    fullText "manaba todo" and pageSize 250 (follow nextPageToken until done). Every event this job
    creates contains `manaba todo`, so this skips unrelated events. Do not write or run scripts: compare
    by reading the results yourself. If listing fails or is blocked, read the message, correct the call
