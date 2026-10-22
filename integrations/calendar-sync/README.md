@@ -38,9 +38,11 @@ Three limits apply to every run:
 1. **Tools.** The job has two Claude Code tools (`--tools Bash,ToolSearch`): Bash, and ToolSearch,
    which only loads tool definitions. With `--permission-mode dontAsk`, Claude Code refuses every
    command and connector tool that is not in the table below, without asking anyone.
-2. **Calendar calls.** A hook (`guard.sh`) checks every calendar call before it runs. It allows only
-   the calendar you chose and only the fields an event needs: no guests, attachments or Meet links.
-   Text in a manaba page therefore cannot make Claude invite someone or read another calendar.
+2. **Commands and calendar calls.** A hook (`guard.sh`) checks every command and calendar call
+   before it runs. Commands: only `manaba todo`, and `manaba show` on a task page. Calendar calls: only
+   the calendar you chose and only the fields an event needs, so no guests, attachments or Meet links.
+   Text in a manaba page therefore cannot make Claude read your grades or messages, invite someone,
+   or touch another calendar. Event descriptions do quote task pages, so use a calendar only you can see.
 3. **Your own setup stays out.** The job loads only its own `settings.json` (`--setting-sources ""`)
    and runs in a new private temporary folder. Your CLAUDE.md, hooks and plugins do not run inside it.
    MCP servers you added to Claude Code yourself still start with each run (turning them off would
@@ -140,7 +142,7 @@ Mac is shut down, that day's run is skipped, and the next run catches up on all 
 | No notification | Allow notifications for **Script Editor** in System Settings → Notifications. |
 | `blocked by manaba-calendar-sync guard` in the log | Claude tried a calendar call outside the limits, often because a page told it to. The call did not run. If it happens on an ordinary task, open an issue with that log line. |
 | `FAILED: stopped after 15 minutes` | A run hung, usually on the network or a connector login, and was stopped. The next run tries again. If it repeats, run `~/.local/share/manaba-calendar-sync/run.sh` by hand and watch the log. |
-| `skipped: another sync is running` in the log | Two runs overlapped (for example a manual run and the scheduled one). The second one stopped without doing anything. |
+| `skipped: another sync or install.sh is running` | Two runs overlapped, or `install.sh` was running at the scheduled time. The skipped run did nothing; the next run catches up. |
 | `error: a sync is running right now` from `install.sh` | Wait about 2 minutes for the run to finish, then run `install.sh` again. |
 | An event was created twice | Its description lost the `manaba todo` line or the task URL. Delete one copy and restore the line. |
 | Nothing happens at the set time | `launchctl print gui/$(id -u)/io.github.seanachan.manaba-calendar-sync` shows the state and the last exit code. |

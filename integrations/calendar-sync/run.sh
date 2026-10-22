@@ -6,7 +6,13 @@ CAL="mcp__claude_ai_Google_Calendar"
 TIMEOUT_S=${MANABA_SYNC_TIMEOUT_S:-900}  # 15 minutes; a normal run takes under 2
 started=$(date '+%Y-%m-%d %H:%M:%S')
 
-log() { print -r -- "=== $started"$'\n'"$1"$'\n'"exit=$2" >> "$LOG"; }
+log() {
+  print -r -- "=== $started"$'\n'"$1"$'\n'"exit=$2" >> "$LOG"
+  # Keep the log small: once it passes 4000 lines, keep the newest 2000.
+  if (( $(wc -l < "$LOG") > 4000 )); then
+    tail -n 2000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+  fi
+}
 notify() {
   osascript -e 'on run argv' -e 'display notification (item 1 of argv) with title "manaba calendar sync"' \
     -e 'end run' "$1" 2>/dev/null
@@ -19,9 +25,10 @@ source "$DIR/config.env" 2>/dev/null || fail "cannot read $DIR/config.env. Run i
 # One run at a time: two overlapping runs would both see a task as new and both add it. install.sh and
 # uninstall.sh take the same lock before they change files. It is released when this script exits.
 zmodload zsh/system zsh/zselect
-: >> "$DIR/.lock"
+: >> "$DIR/.lock" 2>/dev/null || fail "cannot create $DIR/.lock. Run install.sh again."
 if ! zsystem flock -t 0 "$DIR/.lock" 2>/dev/null; then
-  log "skipped: another sync is running" 0
+  log "skipped: another sync or install.sh is running" 0
+  notify "skipped: another sync or install.sh is running"
   exit 0
 fi
 
@@ -41,13 +48,14 @@ prompt=${prompt//'{{NOW}}'/$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')}
 work=$(mktemp -d "$(getconf DARWIN_USER_TEMP_DIR)manaba-calendar-sync.XXXXXX") \
   || fail "cannot create a work folder"
 claude_pid="" watchdog=""
-# Claude and everything under it: Bash tool shells, manaba, a headless Chrome during a re-login.
+# Claude runs in its own process group (set up below), so signalling the group reaches everything it
+# started, even processes whose parent already exited. The tree catches any that left the group.
 proc_tree() { local p; for p in $(pgrep -P $1 2>/dev/null); do proc_tree $p; done; print $1; }
-stop_claude() {  # ask the whole tree to stop, then kill whatever is left after $1 seconds
+stop_claude() {  # ask Claude and everything under it to stop, then kill what is left after $1 seconds
   local pids=($(proc_tree $claude_pid))
-  kill -TERM $pids 2>/dev/null
+  kill -TERM -$claude_pid $pids 2>/dev/null
   zselect -t $(( $1 * 100 ))
-  kill -KILL $pids 2>/dev/null
+  kill -KILL -$claude_pid $pids 2>/dev/null
 }
 # Clean up on every exit. If run.sh itself is stopped, stop Claude and the timer instead of leaving
 # them running.
@@ -60,12 +68,16 @@ trap cleanup EXIT
 trap 'exit 143' INT TERM HUP
 cd "$work" || fail "cannot enter $work"
 
+# perl's setpgrp gives Claude its own process group before exec; zsh cannot do that without a terminal.
+in_own_group=()
+[[ -x /usr/bin/perl ]] && in_own_group=(/usr/bin/perl -e 'setpgrp(0, 0); exec @ARGV or die "exec: $!\n"')
+
 # --setting-sources "" loads no user, project or local settings, which keeps the user's own CLAUDE.md,
-# hooks and plugins out of the job. --settings adds guard.sh as a hook on every calendar call.
+# hooks and plugins out of the job. --settings adds guard.sh as a hook on every Bash and calendar call.
 # --tools keeps two built-in tools: Bash, and ToolSearch, which loads connector tool definitions on
 # demand (without it every connector's tools go into each request and a run costs several times more).
 # dontAsk refuses every Bash command and connector tool that is not in --allowedTools.
-claude -p "$prompt" \
+$in_own_group claude -p "$prompt" \
   --model "${MANABA_SYNC_MODEL:-sonnet}" \
   --setting-sources "" \
   --tools Bash,ToolSearch \
@@ -78,23 +90,30 @@ claude -p "$prompt" \
 claude_pid=$!
 
 # A hung run (stalled network, a connector waiting for a login) would otherwise block every later run.
-( trap - EXIT; zselect -t $(( TIMEOUT_S * 100 )); : > "$work/timed-out"; stop_claude 10 ) &
+# The timer marks the run as timed out only if Claude is still running when it fires.
+( trap - EXIT
+  zselect -t $(( TIMEOUT_S * 100 ))
+  kill -0 $claude_pid 2>/dev/null || exit 0
+  : > "$work/timed-out"
+  stop_claude 10 ) &
 watchdog=$!
 wait $claude_pid
 rc=$?
 claude_pid=""
-kill $watchdog 2>/dev/null
+# After a timeout, let the timer finish its forced kill; otherwise it is no longer needed.
+if [[ -f "$work/timed-out" ]]; then wait $watchdog; else kill $watchdog 2>/dev/null; fi
 watchdog=""
 
-output=$(<"$work/output")
-[[ -f "$work/timed-out" ]] && output+=$'\n'"FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
-
 # Report this run only: the log holds every earlier run too. Claude sometimes formats the report line
-# as markdown (bold, heading, list item), so strip that before matching.
+# as markdown (bold, heading, quote, list item), so strip that markup, and nothing else, before matching.
+output=$(<"$work/output")
 summary=$(print -r -- "$output" \
-  | sed -E 's/[*_`#>]//g; s/^[[:space:]]*(([-+]|[0-9]+\.)[[:space:]]+)?//; s/[[:space:]]+$//' \
+  | sed -E 's/\*\*//g; s/`//g; s/^[[:space:]>#*-]*//; s/^[0-9]+\.[[:space:]]+//; s/[[:space:]*]+$//' \
   | grep -E '^(CREATED [0-9]+|FAILED:)' | tail -1)
-if [[ -z "$summary" ]]; then
+if [[ -z "$summary" && -f "$work/timed-out" ]]; then
+  summary="FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
+  output+=$'\n'"$summary"
+elif [[ -z "$summary" ]]; then
   summary="FAILED: no report (exit $rc), see $LOG"
 elif (( rc != 0 )) && [[ "$summary" != FAILED* ]]; then
   summary="FAILED: exit $rc, see $LOG"
