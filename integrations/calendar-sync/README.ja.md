@@ -112,7 +112,7 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 
 | パス | 内容 |
 |---|---|
-| `~/.local/share/manaba-calendar-sync/` | `prompt.md`（ジョブへの指示）、`run.sh`、`guard.sh`（コマンドとカレンダー操作の確認）、`settings.json`（確認を読み込む設定）、`config.env` |
+| `~/.local/share/manaba-calendar-sync/` | `prompt.md`（ジョブへの指示）、`run.sh`、`guard.sh`（コマンドとカレンダー操作の確認）、`settings.json`（確認を読み込む設定）、`config.env`、`uninstall.sh` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | スケジュール |
 | `~/Library/Logs/manaba-calendar-sync.log` | 実行ごとの記録 |
 | `~/Library/Caches/manaba-calendar-sync.lock`、`manaba-calendar-sync-log.lock` | 実行やログへの書き込みが重ならないようにするためのファイル |
@@ -134,7 +134,7 @@ launchd が設定した時刻にジョブを起動します。その時刻に Ma
 ## アンインストール
 
 ```sh
-./uninstall.sh
+~/.local/share/manaba-calendar-sync/uninstall.sh
 ```
 
-ジョブを止めて、インストールしたファイルを削除します。ログは `~/Library/Logs/` に残ります。
+ジョブを止めて、インストールしたファイル（このスクリプト自身も含む）を削除します。このフォルダの `./uninstall.sh` でも同じです。ログは `~/Library/Logs/` に残ります。

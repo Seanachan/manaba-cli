@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Stops the launchd job and removes the installed files. The log is kept.
+# Stops the launchd job and removes the installed files. The log is kept. install.sh also copies this
+# script into the install folder; it works from either place.
 LABEL="io.github.seanachan.manaba-calendar-sync"
 DOMAIN="gui/$(id -u)"
 DEST="$HOME/.local/share/manaba-calendar-sync"

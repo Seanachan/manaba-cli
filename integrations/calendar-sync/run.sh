@@ -8,6 +8,7 @@ LOCK="$HOME/Library/Caches/manaba-calendar-sync.lock"
 LOG_LOCK="$HOME/Library/Caches/manaba-calendar-sync-log.lock"
 TIMEOUT_S=${MANABA_SYNC_TIMEOUT_S:-900}  # 15 minutes; a normal run takes under 2
 started=$(date '+%Y-%m-%d %H:%M:%S')
+NL=$'\n'
 zmodload zsh/system zsh/zselect
 
 log() {
@@ -63,7 +64,7 @@ cleanup() {
   [[ -n "$watchdog" ]] && kill $watchdog 2>/dev/null
   if (( stopped && ! logged )); then  # record what the stopped run printed, so created events can be traced
     local out=$(run_output)
-    log "${out:+$out$'\n'}FAILED: stopped by a signal" 143
+    log "${out:+$out$NL}FAILED: stopped by a signal" 143
     notify "FAILED: stopped by a signal, see $LOG"
   fi
   [[ -n "$work" ]] && rm -rf "$work"
@@ -147,7 +148,7 @@ summary=$(print -r -- "$report" | grep -m1 -E '^FAILED:')
 [[ -z "$summary" ]] && summary=$(print -r -- "$report" | grep -E '^CREATED [0-9]+' | tail -1)
 if [[ -z "$summary" && -f "$work/timed-out" ]]; then
   summary="FAILED: stopped after $(( TIMEOUT_S / 60 )) minutes"
-  output+=$'\n'"$summary"
+  output+="${output:+$NL}$summary"
 elif [[ -z "$summary" ]]; then
   summary="FAILED: no report (exit $rc), see $LOG"
 elif (( rc != 0 )) && [[ "$summary" != FAILED* ]]; then
@@ -155,7 +156,7 @@ elif (( rc != 0 )) && [[ "$summary" != FAILED* ]]; then
 fi
 # Claude can report FAILED, or no report at all, and still exit 0; count both as a failure.
 [[ "$summary" == FAILED* ]] && (( rc == 0 )) && rc=1
-[[ -s "$work/guard" ]] && output+=$'\n'"$(<"$work/guard")"
+[[ -s "$work/guard" ]] && output+="${output:+$NL}$(<"$work/guard")"
 log "$output" $rc
 logged=1
 notify "$summary"

@@ -132,7 +132,7 @@ whose deadline passed in between.
 
 | Path | What |
 |---|---|
-| `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `guard.sh` (checks commands and calendar calls), `settings.json` (loads the check), `config.env` |
+| `~/.local/share/manaba-calendar-sync/` | `prompt.md` (the job's instructions), `run.sh`, `guard.sh` (checks commands and calendar calls), `settings.json` (loads the check), `config.env`, `uninstall.sh` |
 | `~/Library/LaunchAgents/io.github.seanachan.manaba-calendar-sync.plist` | the schedule |
 | `~/Library/Logs/manaba-calendar-sync.log` | one entry per run |
 | `~/Library/Caches/manaba-calendar-sync.lock`, `manaba-calendar-sync-log.lock` | keep two runs, and two writes to the log, from overlapping |
@@ -154,7 +154,8 @@ whose deadline passed in between.
 ## Uninstall
 
 ```sh
-./uninstall.sh
+~/.local/share/manaba-calendar-sync/uninstall.sh
 ```
 
-It stops the job and removes the installed files. The log stays in `~/Library/Logs/`.
+It stops the job and removes the installed files, itself included. `./uninstall.sh` in this folder does
+the same. The log stays in `~/Library/Logs/`.
